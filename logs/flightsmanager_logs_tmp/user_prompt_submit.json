@@ -1,0 +1,186 @@
+[
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I want to find me cheapest flight from bangkok to london on the 23rd March 2026, use browserpilot"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "google flights"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "one way flight"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "is there a way do this using apis?"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "whats the fastest way?"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "not flyinf via UAE"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes via china"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i'm flexible, what about i fly from bangkok to chiangmai and then any day (cheapest flight) chiangmai to Hongkong and then i will take train to Shenzen and fly from there to london"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "are these estimates, can i get real figure for  SZX to LON"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "which date is change hai and layover how long?"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "date?"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "is it possible to use apis"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "liasse with zen best option"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "but i want to get from where like googleflight or skyscanner which have best deals"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I want this to be able to scale so many users can use similatanouses, but before that i wanto be proof of concerpt"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i want to host in azure and use azure open ai for AI foundry"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "liase wih zen"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "liase with zen"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "check with zen"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "ask zen"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes"
+  },
+  {
+    "session_id": "ab9b5957-1fd2-4fb6-8d16-239168be3b7f",
+    "transcript_path": "/Users/developer/.claude/projects/-Users-developer/ab9b5957-1fd2-4fb6-8d16-239168be3b7f.jsonl",
+    "cwd": "/Users/developer/flightsmanager",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "done?"
+  }
+]
