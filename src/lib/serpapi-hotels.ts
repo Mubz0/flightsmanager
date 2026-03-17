@@ -26,7 +26,21 @@ interface SerpApiHotelProperty {
 interface SerpApiHotelResponse {
   properties?: SerpApiHotelProperty[];
   search_metadata?: { google_hotels_url?: string };
+  search_information?: { hotels_results_state?: string };
   error?: string;
+  // Property details mode: when searching for a specific hotel name,
+  // SerpApi returns the hotel data at the root level instead of in properties[]
+  name?: string;
+  link?: string;
+  address?: string;
+  property_token?: string;
+  extracted_hotel_class?: number;
+  overall_rating?: number;
+  reviews?: number;
+  rate_per_night?: { extracted_lowest?: number };
+  total_rate?: { extracted_lowest?: number };
+  amenities?: string[];
+  images?: Array<{ thumbnail?: string; original_image?: string }>;
 }
 
 export interface HotelSearchResult {
@@ -72,26 +86,40 @@ function buildHotelUrl(query: string, checkIn: string, checkOut: string, apiKey:
   return `https://serpapi.com/search?${sp.toString()}`;
 }
 
+function propertyToHotel(p: SerpApiHotelProperty, currency: string, checkIn: string, checkOut: string): HotelResult {
+  return {
+    name: p.name || "Unknown Hotel",
+    address: p.address || "",
+    hotelClass: p.extracted_hotel_class || 0,
+    overallRating: p.overall_rating || 0,
+    reviewCount: p.reviews || 0,
+    pricePerNight: p.rate_per_night?.extracted_lowest || 0,
+    totalPrice: p.total_rate?.extracted_lowest || 0,
+    currency,
+    amenities: (p.amenities || []).slice(0, 8),
+    thumbnail: p.images?.[0]?.thumbnail || p.images?.[0]?.original_image || "",
+    bookingLink: p.link || "",
+    propertyToken: p.property_token || "",
+    checkIn,
+    checkOut,
+  };
+}
+
 function normalizeHotelResponse(data: SerpApiHotelResponse, currency: string, checkIn: string, checkOut: string): HotelResult[] {
+  // Handle property details mode (specific hotel name search)
+  const isPropertyDetails = data.search_information?.hotels_results_state === "Showing results for property details"
+    || (!data.properties && data.name && data.rate_per_night);
+
+  if (isPropertyDetails && data.name) {
+    const hotel = propertyToHotel(data as SerpApiHotelProperty, currency, checkIn, checkOut);
+    return hotel.pricePerNight > 0 ? [hotel] : [];
+  }
+
+  // Handle normal properties array
   const properties = data.properties || [];
   return properties
     .filter((p) => p.rate_per_night?.extracted_lowest && p.rate_per_night.extracted_lowest > 0)
-    .map((p) => ({
-      name: p.name || "Unknown Hotel",
-      address: p.address || "",
-      hotelClass: p.extracted_hotel_class || 0,
-      overallRating: p.overall_rating || 0,
-      reviewCount: p.reviews || 0,
-      pricePerNight: p.rate_per_night?.extracted_lowest || 0,
-      totalPrice: p.total_rate?.extracted_lowest || 0,
-      currency,
-      amenities: (p.amenities || []).slice(0, 8),
-      thumbnail: p.images?.[0]?.thumbnail || p.images?.[0]?.original_image || "",
-      bookingLink: p.link || "",
-      propertyToken: p.property_token || "",
-      checkIn,
-      checkOut,
-    }));
+    .map((p) => propertyToHotel(p, currency, checkIn, checkOut));
 }
 
 export async function searchHotels(query: string, checkIn: string, checkOut: string, apiKey: string, opts: SearchHotelsOpts = {}): Promise<HotelSearchResult> {
