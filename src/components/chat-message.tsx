@@ -1,18 +1,34 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { FlightCard } from "./flight-card";
+import { SkeletonCard } from "./skeleton-card";
 import type { FlightResult } from "@/lib/types";
 
-// Simple markdown-to-JSX: bold and links
+// Simple markdown-to-JSX: bold, links, and line breaks
 function renderMarkdown(text: string) {
+  // Split by newlines first, then process inline markdown
+  return text.split("\n").map((line, lineIdx, arr) => (
+    <span key={lineIdx}>
+      {processInline(line)}
+      {lineIdx < arr.length - 1 && <br />}
+    </span>
+  ));
+}
+
+function processInline(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
   return parts.map((part, i) => {
     const boldMatch = part.match(/^\*\*(.+)\*\*$/);
     if (boldMatch) return <strong key={i}>{boldMatch[1]}</strong>;
     const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-    if (linkMatch) return <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{linkMatch[1]}</a>;
+    if (linkMatch)
+      return (
+        <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+          {linkMatch[1]}
+        </a>
+      );
     return <span key={i}>{part}</span>;
   });
 }
@@ -45,14 +61,13 @@ function toFlightResult(pruned: any): FlightResult {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   if (message.role === "user") {
-    // Find text parts for user messages
     const text = message.parts
       .filter((p): p is { type: "text"; text: string } => p.type === "text")
       .map((p) => p.text)
       .join("");
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-blue-600 text-white">
+        <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-blue-600 text-white text-sm">
           {text}
         </div>
       </div>
@@ -65,7 +80,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         if (part.type === "text") {
           if (!part.text) return null;
           return (
-            <div key={i} className="max-w-[80%] px-4 py-3 rounded-2xl bg-gray-100 text-gray-900">
+            <div key={i} className="max-w-[80%] px-4 py-3 rounded-2xl bg-gray-100 text-gray-900 text-sm leading-relaxed">
               {renderMarkdown(part.text)}
             </div>
           );
@@ -119,27 +134,39 @@ function ToolInvocationView({
           ? `Looking up airports: ${input?.query}`
           : toolName;
 
-  // If searchFlights returned an array of flights, render flight cards
-  if (isDone && toolName === "searchFlights" && Array.isArray(output)) {
-    const flights = output.map(toFlightResult);
-    return (
-      <div className="space-y-2">
-        <ThinkingStepHeader
-          label={label}
-          isDone
-          expanded={expanded}
-          onToggle={() => setExpanded(!expanded)}
-        />
-        {expanded && (
-          <div className="pl-4 text-xs text-gray-400">Found {flights.length} flights</div>
-        )}
+  // searchFlights: show skeleton while pending, flight cards when done
+  if (toolName === "searchFlights") {
+    if (!isDone) {
+      return (
         <div className="space-y-2">
-          {flights.slice(0, 5).map((flight, j) => (
-            <FlightCard key={j} flight={flight} isCheapest={j === 0} />
-          ))}
+          <ThinkingStepHeader label={label} isDone={false} expanded={false} onToggle={() => {}} />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
-      </div>
-    );
+      );
+    }
+    if (Array.isArray(output)) {
+      const flights = output.map(toFlightResult);
+      return (
+        <div className="space-y-2">
+          <ThinkingStepHeader
+            label={label}
+            isDone
+            expanded={expanded}
+            onToggle={() => setExpanded(!expanded)}
+          />
+          {expanded && (
+            <div className="pl-4 text-xs text-gray-400">Found {flights.length} flights</div>
+          )}
+          <div className="space-y-2">
+            {flights.slice(0, 5).map((flight, j) => (
+              <FlightCard key={j} flight={flight} isCheapest={j === 0} />
+            ))}
+          </div>
+        </div>
+      );
+    }
   }
 
   // For other tools or pending state
