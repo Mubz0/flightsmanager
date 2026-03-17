@@ -1,6 +1,7 @@
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { getAzureOpenAI, getDeploymentName } from "@/lib/openai";
-import { searchFlightsTool, findAlternativeDatesTool, resolveNearbyAirportsTool } from "@/lib/tools";
+import { searchFlightsTool, findAlternativeDatesTool, resolveNearbyAirportsTool, exploreDestinationsTool } from "@/lib/tools";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,6 +23,7 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
    - If unclear, ASK whether they want one-way or round-trip.
    - If a search fails or returns no results, DO NOT retry with the same parameters. Tell the user and suggest broader dates or nearby airports.
 3. **findAlternativeDates:** Automatically use this if searchFlights results exceed the user's stated budget, or if they ask "when is cheapest?"
+4. **exploreDestinations:** Use when the user has a vague or inspirational request like "somewhere warm", "where should I go?", "I have $X budget", or "explore options". Pick 3-5 candidate destination airports based on the user's hints (climate, region, budget) and call this tool. Present results as a ranked comparison.
 
 ## Price Insights
 - searchFlights may return a _price_insights object with: price_level ("low", "typical", "high"), typical_price_range [min, max], lowest_price.
@@ -46,9 +48,20 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
 - User: "Round trip SFO to JFK, Nov 12 returning Nov 19."
   Action: Call searchFlights with date="2025-11-12" and returnDate="2025-11-19". Prices are total round-trip.
 - User: "Which day is cheapest to fly BKK to London?"
-  Action: Call resolveNearbyAirports("London"), then findAlternativeDates.`;
+  Action: Call resolveNearbyAirports("London"), then findAlternativeDates.
+- User: "I have $800 and want to go somewhere warm from SFO in April."
+  Action: Call exploreDestinations with origin="SFO", destinations=["CUN","MIA","HNL","SJU","PVR"], date in April. Present cheapest options.`;
 
 export async function POST(request: Request) {
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "anonymous";
+  const { allowed, remaining } = checkRateLimit(ip);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Too many requests. Please wait a moment." }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "0" },
+    });
+  }
+
   const { messages, travelProfile, currency = "USD" } = await request.json();
 
   // Build dynamic system prompt with travel profile if available
@@ -85,6 +98,7 @@ export async function POST(request: Request) {
       searchFlights: searchFlightsTool,
       findAlternativeDates: findAlternativeDatesTool,
       resolveNearbyAirports: resolveNearbyAirportsTool,
+      exploreDestinations: exploreDestinationsTool,
     },
     stopWhen: stepCountIs(4),
   });

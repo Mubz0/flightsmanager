@@ -15,9 +15,9 @@ const STORAGE_KEY = "flightsmanager-chat";
 const PROFILE_KEY = "flightsmanager-profile";
 
 const EXAMPLE_PROMPTS = [
-  "Cheapest flight from Bangkok to London on March 23, no UAE stopovers",
+  "Cheapest flight from Bangkok to London on March 23",
   "Round trip SFO to Tokyo, Mar 28 returning Apr 5",
-  "BKK to CNX one way, cheapest day in late March",
+  "I have $800 and a week off — somewhere warm from JFK",
 ];
 
 function loadMessages(): UIMessage[] {

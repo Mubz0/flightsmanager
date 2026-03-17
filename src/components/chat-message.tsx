@@ -135,7 +135,9 @@ function ToolInvocationView({
         ? `Checking dates around ${input?.baseDate}`
         : toolName === "resolveNearbyAirports"
           ? `Looking up airports: ${input?.query}`
-          : toolName;
+          : toolName === "exploreDestinations"
+            ? `Exploring ${input?.destinations?.length || ""} destinations from ${input?.origin}`
+            : toolName;
 
   // searchFlights: show skeleton while pending, flight cards when done
   if (toolName === "searchFlights") {

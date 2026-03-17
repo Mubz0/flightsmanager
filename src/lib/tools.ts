@@ -153,3 +153,46 @@ export const resolveNearbyAirportsTool = tool({
     }));
   },
 });
+
+const exploreDestinationsSchema = z.object({
+  origin: z.string().describe("Origin IATA airport code"),
+  destinations: z.array(z.string()).min(2).max(5).describe("Array of destination IATA airport codes to compare (2-5)"),
+  date: z.string().describe("Departure date in YYYY-MM-DD format"),
+  returnDate: z.string().optional().describe("Return date for round-trip comparison"),
+  currency: z.string().optional().describe("Currency code"),
+});
+
+export const exploreDestinationsTool = tool({
+  description: "Compare flight prices to multiple destinations in parallel. Use when the user has a vague request like 'somewhere warm', 'where can I go for $500', or 'explore options from JFK'. You choose 2-5 candidate destination airports and this tool searches them all simultaneously, returning the cheapest flight to each.",
+  inputSchema: exploreDestinationsSchema,
+  execute: async (input) => {
+    const { origin, destinations, date, returnDate, currency } = input;
+    const apiKey = process.env.SERPAPI_API_KEY;
+    if (!apiKey) return { status: "error", message: "SerpApi key not configured." };
+
+    const settled = await Promise.allSettled(
+      destinations.map((dest) => searchFlights(origin, dest, date, apiKey, undefined, returnDate, currency))
+    );
+
+    const results: Array<{ destination: string; cheapest_price: number | null; airline?: string; duration_minutes?: number; stops?: number; currency: string }> = [];
+
+    settled.forEach((result, i) => {
+      if (result.status === "fulfilled" && result.value.flights.length > 0) {
+        const cheapest = result.value.flights[0];
+        results.push({
+          destination: destinations[i],
+          cheapest_price: cheapest.price,
+          airline: cheapest.airline,
+          duration_minutes: cheapest.duration_minutes,
+          stops: cheapest.stops,
+          currency: cheapest.currency,
+        });
+      } else {
+        results.push({ destination: destinations[i], cheapest_price: null, currency: currency || "USD" });
+      }
+    });
+
+    results.sort((a, b) => (a.cheapest_price ?? Infinity) - (b.cheapest_price ?? Infinity));
+    return results;
+  },
+});
