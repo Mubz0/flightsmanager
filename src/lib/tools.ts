@@ -21,16 +21,19 @@ function pruneFlights(flights: FlightResult[], max = 8) {
   }));
 }
 
+const searchFlightsSchema = z.object({
+  origin: z.string().describe("Origin IATA airport code (e.g. JFK, BKK, LHR)"),
+  destination: z.string().describe("Destination IATA airport code"),
+  date: z.string().describe("Departure date in YYYY-MM-DD format"),
+  cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).optional().describe("Cabin class"),
+  maxStops: z.number().optional().describe("Maximum number of stops"),
+});
+
 export const searchFlightsTool = tool({
   description: "Search for flights between two airports on a specific date. Returns up to 8 flight options sorted by price.",
-  parameters: z.object({
-    origin: z.string().describe("Origin IATA airport code (e.g. JFK, BKK, LHR)"),
-    destination: z.string().describe("Destination IATA airport code"),
-    date: z.string().describe("Departure date in YYYY-MM-DD format"),
-    cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).optional().describe("Cabin class"),
-    maxStops: z.number().optional().describe("Maximum number of stops"),
-  }),
-  execute: async ({ origin, destination, date, cabinClass, maxStops }) => {
+  inputSchema: searchFlightsSchema,
+  execute: async (input) => {
+    const { origin, destination, date, cabinClass, maxStops } = input;
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) return "SerpApi key not configured. Cannot search flights.";
     try {
@@ -48,15 +51,18 @@ export const searchFlightsTool = tool({
   },
 });
 
+const findAlternativeDatesSchema = z.object({
+  origin: z.string().describe("Origin IATA airport code"),
+  destination: z.string().describe("Destination IATA airport code"),
+  baseDate: z.string().describe("Center date in YYYY-MM-DD format"),
+  flexDays: z.number().min(1).max(3).describe("Number of days +/- to check (1-3)"),
+});
+
 export const findAlternativeDatesTool = tool({
   description: "Find the cheapest date to fly between two airports. Checks multiple dates around a base date and returns the cheapest price for each day.",
-  parameters: z.object({
-    origin: z.string().describe("Origin IATA airport code"),
-    destination: z.string().describe("Destination IATA airport code"),
-    baseDate: z.string().describe("Center date in YYYY-MM-DD format"),
-    flexDays: z.number().min(1).max(3).describe("Number of days +/- to check (1-3)"),
-  }),
-  execute: async ({ origin, destination, baseDate, flexDays }) => {
+  inputSchema: findAlternativeDatesSchema,
+  execute: async (input) => {
+    const { origin, destination, baseDate, flexDays } = input;
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) return "SerpApi key not configured.";
     try {
@@ -89,12 +95,15 @@ export const findAlternativeDatesTool = tool({
   },
 });
 
+const resolveNearbyAirportsSchema = z.object({
+  query: z.string().describe("City name, region, or airport name (e.g. 'London', 'New York', 'Napa Valley')"),
+});
+
 export const resolveNearbyAirportsTool = tool({
   description: "Find airport IATA codes for a city, region, or airport name. Use this when the user mentions a city name instead of an airport code.",
-  parameters: z.object({
-    query: z.string().describe("City name, region, or airport name (e.g. 'London', 'New York', 'Napa Valley')"),
-  }),
-  execute: async ({ query }) => {
+  inputSchema: resolveNearbyAirportsSchema,
+  execute: async (input) => {
+    const { query } = input;
     const results = resolveAirports(query);
     if (results.length === 0) {
       return `Could not find airports matching "${query}". Ask the user for a more specific airport or city name.`;
