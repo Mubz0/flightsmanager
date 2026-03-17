@@ -3,9 +3,11 @@
 import { useState } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { FlightCard } from "./flight-card";
+import { HotelCard } from "./hotel-card";
 import { SkeletonCard } from "./skeleton-card";
 import { usePins } from "./pin-context";
 import type { FlightResult } from "@/lib/types";
+import type { HotelResult } from "@/lib/types-hotels";
 
 // Simple markdown-to-JSX: bold, links, and line breaks
 function renderMarkdown(text: string) {
@@ -126,7 +128,7 @@ function ToolInvocationView({
   isDone: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { pin, isPinned } = usePins();
+  const { pinFlight, isFlightPinned, pinHotel, isHotelPinned } = usePins();
 
   const label =
     toolName === "searchFlights"
@@ -137,7 +139,9 @@ function ToolInvocationView({
           ? `Looking up airports: ${input?.query}`
           : toolName === "exploreDestinations"
             ? `Exploring ${input?.destinations?.length || ""} destinations from ${input?.origin}`
-            : toolName;
+            : toolName === "searchHotels"
+              ? `Searching hotels in ${input?.q}`
+              : toolName;
 
   // searchFlights: show skeleton while pending, flight cards when done
   if (toolName === "searchFlights") {
@@ -169,7 +173,7 @@ function ToolInvocationView({
           {priceInsights && <PriceInsightsBadge insights={priceInsights} />}
           <div className="space-y-2">
             {flights.slice(0, 5).map((flight, j) => (
-              <FlightCard key={j} flight={flight} isCheapest={j === 0} onPin={pin} isPinned={isPinned(flight)} />
+              <FlightCard key={j} flight={flight} isCheapest={j === 0} onPin={pinFlight} isPinned={isFlightPinned(flight)} />
             ))}
           </div>
         </div>
@@ -183,6 +187,63 @@ function ToolInvocationView({
           {output.status === "no_results" && (
             <div className="px-3 py-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg">
               No matching flights found{output.cheapest_available ? ` (cheapest available: $${output.cheapest_available})` : ""}
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+
+  // searchHotels: show skeleton while pending, hotel cards when done
+  if (toolName === "searchHotels") {
+    if (!isDone) {
+      return (
+        <div className="space-y-2">
+          <ThinkingStepHeader label={label} isDone={false} expanded={false} onToggle={() => {}} />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      );
+    }
+    if (Array.isArray(output)) {
+      const hotels: HotelResult[] = output.map((h: any) => ({
+        name: h.name || "",
+        address: h.address || "",
+        hotelClass: h.hotelClass || 0,
+        overallRating: h.overallRating || 0,
+        reviewCount: h.reviewCount || 0,
+        pricePerNight: h.pricePerNight || 0,
+        totalPrice: h.totalPrice || 0,
+        currency: h.currency || "USD",
+        amenities: h.amenities || [],
+        thumbnail: h.thumbnail || "",
+        bookingLink: h.bookingLink || "",
+        propertyToken: h.propertyToken || "",
+        checkIn: h.checkIn || "",
+        checkOut: h.checkOut || "",
+      }));
+      return (
+        <div className="space-y-2">
+          <ThinkingStepHeader label={label} isDone expanded={expanded} onToggle={() => setExpanded(!expanded)} />
+          {expanded && (
+            <div className="pl-4 text-xs text-gray-400">Found {hotels.length} hotels</div>
+          )}
+          <div className="space-y-2">
+            {hotels.slice(0, 5).map((hotel, j) => (
+              <HotelCard key={j} hotel={hotel} isCheapest={j === 0} onPin={pinHotel} isPinned={isHotelPinned(hotel)} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (output && typeof output === "object" && output.status) {
+      return (
+        <div className="space-y-2">
+          <ThinkingStepHeader label={label} isDone expanded={expanded} onToggle={() => setExpanded(!expanded)} />
+          {output.status === "no_results" && (
+            <div className="px-3 py-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg">
+              No hotels found{output.message ? `: ${output.message}` : ""}
             </div>
           )}
         </div>

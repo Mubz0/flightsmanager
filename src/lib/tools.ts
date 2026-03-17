@@ -2,9 +2,11 @@ import { z } from "zod";
 import { tool } from "ai";
 import { searchFlights } from "./serpapi";
 import type { PriceInsights } from "./serpapi";
+import { searchHotels } from "./serpapi-hotels";
 import { filterFlights } from "./flight-filter";
 import { resolveAirports } from "./airports";
 import type { FlightResult } from "./types";
+import type { HotelResult } from "./types-hotels";
 
 function pruneFlights(flights: FlightResult[], max = 8) {
   return flights.slice(0, max).map((f) => ({
@@ -194,5 +196,75 @@ export const exploreDestinationsTool = tool({
 
     results.sort((a, b) => (a.cheapest_price ?? Infinity) - (b.cheapest_price ?? Infinity));
     return results;
+  },
+});
+
+// --- Hotel Tools ---
+
+function pruneHotels(hotels: HotelResult[], max = 8) {
+  return hotels.slice(0, max).map((h) => ({
+    name: h.name,
+    address: h.address,
+    hotelClass: h.hotelClass,
+    overallRating: h.overallRating,
+    reviewCount: h.reviewCount,
+    pricePerNight: h.pricePerNight,
+    totalPrice: h.totalPrice,
+    currency: h.currency,
+    amenities: h.amenities.slice(0, 5),
+    thumbnail: h.thumbnail,
+    bookingLink: h.bookingLink,
+    checkIn: h.checkIn,
+    checkOut: h.checkOut,
+  }));
+}
+
+const searchHotelsSchema = z.object({
+  q: z.string().describe("Location or city name to search hotels in (e.g. 'London', 'Bali', 'Paris')"),
+  checkInDate: z.string().describe("Check-in date in YYYY-MM-DD format"),
+  checkOutDate: z.string().describe("Check-out date in YYYY-MM-DD format"),
+  adults: z.number().optional().describe("Number of adult guests. Defaults to 2."),
+  currency: z.string().optional().describe("Currency code (e.g. USD, EUR, GBP). Defaults to USD."),
+  maxPrice: z.number().optional().describe("Maximum price per night."),
+  hotelClass: z.string().optional().describe("Hotel star rating filter. Comma-separated: '4,5' for 4-5 star hotels."),
+  minRating: z.number().optional().describe("Minimum guest rating (e.g. 4.0, 4.5)."),
+  freeCancellation: z.boolean().optional().describe("Only show hotels with free cancellation."),
+  sortBy: z.enum(["lowest_price", "highest_rating", "most_reviewed"]).optional().describe("Sort order for results."),
+});
+
+export const searchHotelsTool = tool({
+  description: "Search for hotels in a location for specific dates. Returns up to 8 hotel options with prices, ratings, amenities, and booking links. Use when the user asks about hotels, accommodation, places to stay, or lodging.",
+  inputSchema: searchHotelsSchema,
+  execute: async (input) => {
+    const { q, checkInDate, checkOutDate, adults, currency, maxPrice, hotelClass, minRating, freeCancellation, sortBy } = input;
+    const apiKey = process.env.SERPAPI_API_KEY;
+    if (!apiKey) return { status: "error", message: "SerpApi key not configured." };
+    try {
+      const { hotels } = await searchHotels(q, checkInDate, checkOutDate, apiKey, {
+        adults,
+        currency,
+        maxPrice,
+        hotelClass,
+        rating: minRating,
+        sortBy,
+        freeCancellation,
+      });
+
+      if (hotels.length === 0) {
+        return {
+          status: "no_results",
+          message: `No hotels found in ${q} for ${checkInDate} to ${checkOutDate}.`,
+          suggestions: [
+            "Try different dates",
+            "Try a broader location (e.g. city name instead of neighborhood)",
+            "Remove price or rating filters",
+          ],
+        };
+      }
+
+      return pruneHotels(hotels);
+    } catch (error) {
+      return { status: "error", message: `Hotel search failed for ${q}. Do not retry with the same parameters.`, suggestions: ["Try a different location", "Try different dates"] };
+    }
   },
 });

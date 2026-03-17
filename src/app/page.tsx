@@ -269,6 +269,6 @@ export default function Home() {
 }
 
 function PinnedDrawerWrapper() {
-  const { pinned, unpin, clear } = usePins();
-  return <PinnedFlightsDrawer flights={pinned} onRemove={unpin} onClear={clear} />;
+  const { pinnedFlights, pinnedHotels, unpinFlight, unpinHotel, clear, totalPinned } = usePins();
+  return <PinnedFlightsDrawer flights={pinnedFlights} hotels={pinnedHotels} onRemoveFlight={unpinFlight} onRemoveHotel={unpinHotel} onClear={clear} totalPinned={totalPinned} />;
 }

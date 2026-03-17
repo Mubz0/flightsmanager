@@ -2,46 +2,79 @@
 
 import { createContext, useContext, useState, useCallback } from "react";
 import type { FlightResult } from "@/lib/types";
+import type { HotelResult } from "@/lib/types-hotels";
 
 interface PinContextType {
-  pinned: FlightResult[];
-  pin: (flight: FlightResult) => void;
-  unpin: (index: number) => void;
-  isPinned: (flight: FlightResult) => boolean;
+  pinnedFlights: FlightResult[];
+  pinnedHotels: HotelResult[];
+  pinFlight: (flight: FlightResult) => void;
+  unpinFlight: (index: number) => void;
+  isFlightPinned: (flight: FlightResult) => boolean;
+  pinHotel: (hotel: HotelResult) => void;
+  unpinHotel: (index: number) => void;
+  isHotelPinned: (hotel: HotelResult) => boolean;
   clear: () => void;
+  totalPinned: number;
 }
 
 const PinContext = createContext<PinContextType>({
-  pinned: [],
-  pin: () => {},
-  unpin: () => {},
-  isPinned: () => false,
+  pinnedFlights: [],
+  pinnedHotels: [],
+  pinFlight: () => {},
+  unpinFlight: () => {},
+  isFlightPinned: () => false,
+  pinHotel: () => {},
+  unpinHotel: () => {},
+  isHotelPinned: () => false,
   clear: () => {},
+  totalPinned: 0,
 });
 
 export function PinProvider({ children }: { children: React.ReactNode }) {
-  const [pinned, setPinned] = useState<FlightResult[]>([]);
+  const [pinnedFlights, setPinnedFlights] = useState<FlightResult[]>([]);
+  const [pinnedHotels, setPinnedHotels] = useState<HotelResult[]>([]);
 
-  const pin = useCallback((flight: FlightResult) => {
-    setPinned((prev) => {
+  const pinFlight = useCallback((flight: FlightResult) => {
+    setPinnedFlights((prev) => {
       const exists = prev.some((f) => f.flight_number === flight.flight_number && f.departure_time === flight.departure_time && f.price === flight.price);
       if (exists) return prev;
       return [...prev, flight];
     });
   }, []);
 
-  const unpin = useCallback((index: number) => {
-    setPinned((prev) => prev.filter((_, i) => i !== index));
+  const unpinFlight = useCallback((index: number) => {
+    setPinnedFlights((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const isPinned = useCallback((flight: FlightResult) => {
-    return pinned.some((f) => f.flight_number === flight.flight_number && f.departure_time === flight.departure_time && f.price === flight.price);
-  }, [pinned]);
+  const isFlightPinned = useCallback((flight: FlightResult) => {
+    return pinnedFlights.some((f) => f.flight_number === flight.flight_number && f.departure_time === flight.departure_time && f.price === flight.price);
+  }, [pinnedFlights]);
 
-  const clear = useCallback(() => setPinned([]), []);
+  const pinHotel = useCallback((hotel: HotelResult) => {
+    setPinnedHotels((prev) => {
+      const exists = prev.some((h) => h.name === hotel.name && h.checkIn === hotel.checkIn && h.pricePerNight === hotel.pricePerNight);
+      if (exists) return prev;
+      return [...prev, hotel];
+    });
+  }, []);
+
+  const unpinHotel = useCallback((index: number) => {
+    setPinnedHotels((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const isHotelPinned = useCallback((hotel: HotelResult) => {
+    return pinnedHotels.some((h) => h.name === hotel.name && h.checkIn === hotel.checkIn && h.pricePerNight === hotel.pricePerNight);
+  }, [pinnedHotels]);
+
+  const clear = useCallback(() => {
+    setPinnedFlights([]);
+    setPinnedHotels([]);
+  }, []);
+
+  const totalPinned = pinnedFlights.length + pinnedHotels.length;
 
   return (
-    <PinContext.Provider value={{ pinned, pin, unpin, isPinned, clear }}>
+    <PinContext.Provider value={{ pinnedFlights, pinnedHotels, pinFlight, unpinFlight, isFlightPinned, pinHotel, unpinHotel, isHotelPinned, clear, totalPinned }}>
       {children}
     </PinContext.Provider>
   );

@@ -1,6 +1,6 @@
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { getAzureOpenAI, getDeploymentName } from "@/lib/openai";
-import { searchFlightsTool, findAlternativeDatesTool, resolveNearbyAirportsTool, exploreDestinationsTool } from "@/lib/tools";
+import { searchFlightsTool, findAlternativeDatesTool, resolveNearbyAirportsTool, exploreDestinationsTool, searchHotelsTool } from "@/lib/tools";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -50,7 +50,23 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
 - User: "Which day is cheapest to fly BKK to London?"
   Action: Call resolveNearbyAirports("London"), then findAlternativeDates.
 - User: "I have $800 and want to go somewhere warm from SFO in April."
-  Action: Call exploreDestinations with origin="SFO", destinations=["CUN","MIA","HNL","SJU","PVR"], date in April. Present cheapest options.`;
+  Action: Call exploreDestinations with origin="SFO", destinations=["CUN","MIA","HNL","SJU","PVR"], date in April. Present cheapest options.
+
+## Hotel Search Rules
+5. **searchHotels:** Use when the user asks about hotels, accommodation, places to stay, or lodging.
+   - Do NOT proactively suggest hotels after flight searches — only when the user explicitly asks.
+   - Always require check-in and check-out dates. If missing, ask the user.
+   - The q parameter should be a location name (city, region, or neighborhood), not an airport code.
+   - Present results highlighting: price per night, star rating, guest rating, and top amenities.
+   - If the user has a budget, pass maxPrice. If they want luxury, pass hotelClass="4,5".
+
+## Hotel Examples
+- User: "Find me a hotel in London from March 21 to 25."
+  Action: Call searchHotels with q="London", checkInDate="2026-03-21", checkOutDate="2026-03-25".
+- User: "I need a 4-star hotel in Paris under $200/night."
+  Action: Call searchHotels with q="Paris", hotelClass="4", maxPrice=200.
+- User: "Where should I stay in Bali?"
+  Action: Ask for check-in and check-out dates, then call searchHotels.`;
 
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "anonymous";
@@ -84,7 +100,7 @@ export async function POST(request: Request) {
   }
 
   if (currency !== "USD") {
-    systemPrompt += `\n\n## Currency\nThe user has selected ${currency} as their preferred currency. Always pass currency="${currency}" to the searchFlights tool.`;
+    systemPrompt += `\n\n## Currency\nThe user has selected ${currency} as their preferred currency. Always pass currency="${currency}" to the searchFlights and searchHotels tools.`;
   }
 
   const azure = getAzureOpenAI();
@@ -99,6 +115,7 @@ export async function POST(request: Request) {
       findAlternativeDates: findAlternativeDatesTool,
       resolveNearbyAirports: resolveNearbyAirportsTool,
       exploreDestinations: exploreDestinationsTool,
+      searchHotels: searchHotelsTool,
     },
     stopWhen: stepCountIs(4),
   });

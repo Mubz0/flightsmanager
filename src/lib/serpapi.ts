@@ -1,5 +1,6 @@
 import { LRUCache } from "lru-cache";
 import type { FlightResult, Layover } from "./types";
+import { expandCityCode } from "./city-codes";
 
 // Cache SerpApi results for 30 minutes, max 200 entries
 const flightCache = new LRUCache<string, SearchResult>({
@@ -45,34 +46,6 @@ export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string
     const depDate = first.departure_airport.time.split(" ")[0];
     return { airline: first.airline, flight_number: first.flight_number, departure_time: first.departure_airport.time, arrival_time: last.arrival_airport.time, duration_minutes: f.total_duration, origin: first.departure_airport.id, destination: last.arrival_airport.id, stops: f.flights.length - 1, layovers, price: f.price, currency, cabin_class: "economy", co2_emissions_kg: f.carbon_emissions ? Math.round(f.carbon_emissions.this_flight / 1000) : undefined, booking_token: f.booking_token, departure_date: depDate, google_flights_url: googleFlightsUrl, trip_type: isRoundTrip ? "round_trip" : "one_way" };
   });
-}
-
-// Multi-airport city codes that SerpApi doesn't support directly.
-// Maps city code → individual airport IATA codes to search in parallel.
-const CITY_AIRPORT_MAP: Record<string, string[]> = {
-  LON: ["LHR", "LGW", "STN", "LTN", "LCY"],
-  NYC: ["JFK", "EWR", "LGA"],
-  PAR: ["CDG", "ORY"],
-  TYO: ["NRT", "HND"],
-  CHI: ["ORD", "MDW"],
-  WAS: ["IAD", "DCA", "BWI"],
-  MIL: ["MXP", "LIN"],
-  BUE: ["EZE", "AEP"],
-  MOW: ["SVO", "DME", "VKO"],
-  SAO: ["GRU", "CGH"],
-  SEL: ["ICN", "GMP"],
-  BJS: ["PEK", "PKX"],
-  OSA: ["KIX", "ITM"],
-  STO: ["ARN", "BMA"],
-  BER: ["BER"],
-  ROM: ["FCO", "CIA"],
-  MEX: ["MEX"],
-  YTO: ["YYZ", "YTZ"],
-  YMQ: ["YUL", "YMX"],
-};
-
-function expandCityCode(code: string): string[] | null {
-  return CITY_AIRPORT_MAP[code.toUpperCase()] || null;
 }
 
 async function searchSingleRoute(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string, currency = "USD"): Promise<SearchResult> {
