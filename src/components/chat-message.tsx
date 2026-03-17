@@ -148,7 +148,9 @@ function ToolInvocationView({
       );
     }
     if (Array.isArray(output)) {
-      const flights = output.map(toFlightResult);
+      const priceInsightsEntry = output.find((item: any) => item._price_insights);
+      const priceInsights = priceInsightsEntry?._price_insights;
+      const flights = output.filter((item: any) => !item._price_insights).map(toFlightResult);
       return (
         <div className="space-y-2">
           <ThinkingStepHeader
@@ -160,6 +162,7 @@ function ToolInvocationView({
           {expanded && (
             <div className="pl-4 text-xs text-gray-400">Found {flights.length} flights</div>
           )}
+          {priceInsights && <PriceInsightsBadge insights={priceInsights} />}
           <div className="space-y-2">
             {flights.slice(0, 5).map((flight, j) => (
               <FlightCard key={j} flight={flight} isCheapest={j === 0} />
@@ -224,5 +227,20 @@ function ThinkingStepHeader({
       <span>{label}</span>
       {isDone && <span className="text-gray-300">{expanded ? "▲" : "▼"}</span>}
     </button>
+  );
+}
+
+function PriceInsightsBadge({ insights }: { insights: { price_level?: string; typical_price_range?: [number, number]; lowest_price?: number } }) {
+  const level = insights.price_level?.toLowerCase();
+  const colors = level === "low" ? "bg-green-50 text-green-700 border-green-200"
+    : level === "high" ? "bg-red-50 text-red-700 border-red-200"
+    : "bg-blue-50 text-blue-700 border-blue-200";
+  const label = level === "low" ? "Good deal" : level === "high" ? "Prices are high" : "Typical prices";
+  const range = insights.typical_price_range;
+  return (
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border ${colors}`}>
+      <span className="font-medium">{label}</span>
+      {range && <span>Typical: ${range[0]}–${range[1]}</span>}
+    </div>
   );
 }

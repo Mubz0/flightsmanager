@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tool } from "ai";
 import { searchFlights } from "./serpapi";
+import type { PriceInsights } from "./serpapi";
 import { filterFlights } from "./flight-filter";
 import { resolveAirports } from "./airports";
 import type { FlightResult } from "./types";
@@ -42,7 +43,8 @@ export const searchFlightsTool = tool({
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) return { status: "error", message: "SerpApi key not configured." };
     try {
-      let flights = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate);
+      const { flights: allFlights, priceInsights } = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate);
+      let flights = allFlights;
       if (maxStops !== undefined) {
         flights = filterFlights(flights, { maxStops });
       }
@@ -60,7 +62,6 @@ export const searchFlightsTool = tool({
       const sorted = [...preferredMatches, ...otherFlights];
 
       if (sorted.length === 0) {
-        // Provide structured fallback with context for the LLM
         const cheapest = flights.length > 0 ? flights[0].price : null;
         return {
           status: "no_results",
@@ -68,6 +69,7 @@ export const searchFlightsTool = tool({
           cheapest_available: cheapest,
           total_unfiltered: flights.length,
           filters_applied: { maxPrice, maxStops, preferredAirlines, excludedAirlines },
+          price_insights: priceInsights,
           suggestions: [
             maxPrice && cheapest && cheapest > maxPrice ? `Cheapest available is $${cheapest} (over your $${maxPrice} budget). Consider increasing budget or trying adjacent dates.` : null,
             preferredAirlines?.length ? `No ${preferredAirlines.join("/")} flights found. Other airlines are available.` : null,
@@ -75,7 +77,11 @@ export const searchFlightsTool = tool({
           ].filter(Boolean),
         };
       }
-      return pruneFlights(sorted);
+      const result: any[] = pruneFlights(sorted);
+      if (priceInsights) {
+        result.push({ _price_insights: priceInsights });
+      }
+      return result;
     } catch (error) {
       return { status: "error", message: `Search failed for ${origin} → ${destination} on ${date}. Do not retry with the same parameters.`, suggestions: ["Try different dates", "Try nearby airports"] };
     }
@@ -109,8 +115,8 @@ export const findAlternativeDatesTool = tool({
       );
       const priceByDate: Record<string, number> = {};
       settled.forEach((result, i) => {
-        if (result.status === "fulfilled" && result.value.length > 0) {
-          const validPrices = result.value.map((f) => f.price).filter((p) => typeof p === "number" && !isNaN(p));
+        if (result.status === "fulfilled" && result.value.flights.length > 0) {
+          const validPrices = result.value.flights.map((f) => f.price).filter((p) => typeof p === "number" && !isNaN(p));
           if (validPrices.length > 0) {
             priceByDate[dates[i]] = Math.min(...validPrices);
           }

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
+import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
+
+const STORAGE_KEY = "flightsmanager-chat";
 
 const EXAMPLE_PROMPTS = [
   "Cheapest flight from Bangkok to London on March 23, no UAE stopovers",
@@ -11,11 +14,42 @@ const EXAMPLE_PROMPTS = [
   "BKK to CNX one way, cheapest day in late March",
 ];
 
+function loadMessages(): UIMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveMessages(messages: UIMessage[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
 export default function Home() {
   const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
 
   const isLoading = status === "submitted" || status === "streaming";
+
+  // Restore messages from localStorage on mount
+  useEffect(() => {
+    if (!restoredRef.current) {
+      restoredRef.current = true;
+      const saved = loadMessages();
+      if (saved.length > 0) setMessages(saved);
+    }
+  }, [setMessages]);
+
+  // Persist messages to localStorage when they change (skip while streaming)
+  useEffect(() => {
+    if (!isLoading && messages.length > 0) {
+      saveMessages(messages);
+    }
+  }, [messages, isLoading]);
 
   // Auto-scroll to bottom on new messages/streaming
   useEffect(() => {
@@ -24,10 +58,11 @@ export default function Home() {
     }
   }, [messages, isLoading]);
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     setMessages([]);
     clearError();
-  };
+    localStorage.removeItem(STORAGE_KEY);
+  }, [setMessages, clearError]);
 
   return (
     <main className="flex flex-col h-screen">

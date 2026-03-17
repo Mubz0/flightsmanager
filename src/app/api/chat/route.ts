@@ -23,6 +23,11 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
    - If a search fails or returns no results, DO NOT retry with the same parameters. Tell the user and suggest broader dates or nearby airports.
 3. **findAlternativeDates:** Automatically use this if searchFlights results exceed the user's stated budget, or if they ask "when is cheapest?"
 
+## Price Insights
+- searchFlights may return a _price_insights object with: price_level ("low", "typical", "high"), typical_price_range [min, max], lowest_price.
+- Use this to help the user decide: "At $450, this is on the low end — typical prices for this route are $500-$700."
+- If price_level is "high", proactively suggest checking alternative dates.
+
 ## Preference Tracking
 - Track user-stated preferences across the conversation: budget, cabin class, preferred/excluded airlines, max stops.
 - Automatically apply these as tool parameters on subsequent searches without re-asking.

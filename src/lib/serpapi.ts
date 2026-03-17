@@ -2,7 +2,7 @@ import { LRUCache } from "lru-cache";
 import type { FlightResult, Layover } from "./types";
 
 // Cache SerpApi results for 30 minutes, max 200 entries
-const flightCache = new LRUCache<string, FlightResult[]>({
+const flightCache = new LRUCache<string, SearchResult>({
   max: 200,
   ttl: 30 * 60 * 1000, // 30 minutes
 });
@@ -19,7 +19,22 @@ export function buildSerpApiUrl(params: BuildUrlParams): string {
 }
 
 interface SerpApiFlight { flights: Array<{ airline: string; flight_number: string; departure_airport: { id: string; time: string }; arrival_airport: { id: string; time: string }; duration: number }>; layovers?: Array<{ name: string; id: string; duration: number }>; total_duration: number; price: number; carbon_emissions?: { this_flight: number }; booking_token?: string; }
-interface SerpApiResponse { best_flights: SerpApiFlight[]; other_flights: SerpApiFlight[]; search_metadata?: { google_flights_url?: string }; }
+interface SerpApiPriceInsights { lowest_price?: number; price_level?: string; typical_price_range?: [number, number]; price_history?: number[][]; }
+interface SerpApiResponse { best_flights: SerpApiFlight[]; other_flights: SerpApiFlight[]; search_metadata?: { google_flights_url?: string }; price_insights?: SerpApiPriceInsights; }
+
+export interface PriceInsights { lowest_price?: number; price_level?: string; typical_price_range?: [number, number]; }
+
+export function extractPriceInsights(data: SerpApiResponse): PriceInsights | null {
+  const pi = data.price_insights;
+  if (!pi) return null;
+  return {
+    lowest_price: pi.lowest_price,
+    price_level: pi.price_level,
+    typical_price_range: pi.typical_price_range,
+  };
+}
+
+export interface SearchResult { flights: FlightResult[]; priceInsights: PriceInsights | null; }
 
 export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string, isRoundTrip = false): FlightResult[] {
   const all = [...(data.best_flights || []), ...(data.other_flights || [])];
@@ -32,7 +47,7 @@ export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string
   });
 }
 
-export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string): Promise<FlightResult[]> {
+export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string): Promise<SearchResult> {
   const cacheKey = `${origin}-${destination}-${date}-${returnDate || "oneway"}-${cabinClass || "economy"}`;
   const cached = flightCache.get(cacheKey);
   if (cached) return cached;
@@ -40,8 +55,12 @@ export async function searchFlights(origin: string, destination: string, date: s
   const url = buildSerpApiUrl({ origin, destination, date, apiKey, cabinClass, returnDate });
   const r = await fetch(url);
   if (!r.ok) throw new Error(`SerpApi request failed: ${r.status} ${r.statusText}`);
-  const results = normalizeSerpApiResponse(await r.json(), "USD", !!returnDate);
+  const data = await r.json();
+  const result: SearchResult = {
+    flights: normalizeSerpApiResponse(data, "USD", !!returnDate),
+    priceInsights: extractPriceInsights(data),
+  };
 
-  flightCache.set(cacheKey, results);
-  return results;
+  flightCache.set(cacheKey, result);
+  return result;
 }
