@@ -86,6 +86,11 @@ function buildHotelUrl(query: string, checkIn: string, checkOut: string, apiKey:
   return `https://serpapi.com/search?${sp.toString()}`;
 }
 
+function buildGoogleHotelsUrl(hotelName: string, checkIn: string, checkOut: string): string {
+  const q = encodeURIComponent(hotelName);
+  return `https://www.google.com/travel/search?q=${q}&qs=CAEyBAgAEAA&ved=0CAAQ5JsGahcKEwgAEAAYAA&checkin=${checkIn}&checkout=${checkOut}`;
+}
+
 function propertyToHotel(p: SerpApiHotelProperty, currency: string, checkIn: string, checkOut: string): HotelResult {
   return {
     name: p.name || "Unknown Hotel",
@@ -98,7 +103,7 @@ function propertyToHotel(p: SerpApiHotelProperty, currency: string, checkIn: str
     currency,
     amenities: (p.amenities || []).slice(0, 8),
     thumbnail: p.images?.[0]?.thumbnail || p.images?.[0]?.original_image || "",
-    bookingLink: p.link || "",
+    bookingLink: buildGoogleHotelsUrl(p.name || "", checkIn, checkOut),
     propertyToken: p.property_token || "",
     checkIn,
     checkOut,
