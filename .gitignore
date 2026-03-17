@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deploy artifacts
+deploy-tmp/
+deploy-tmp-old/
+fresh-deploy/
+*.zip
+
+# logs
+logs/
