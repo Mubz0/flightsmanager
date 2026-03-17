@@ -5,6 +5,7 @@ import { SearchBar } from "@/components/search-bar";
 import { StreamStatus } from "@/components/stream-status";
 import { FlightResults } from "@/components/flight-results";
 import { FlightFilters, applyFilters, type FilterState } from "@/components/flight-filters";
+import { SkeletonResults } from "@/components/skeleton-card";
 import type { LegSearchResult, StreamEvent } from "@/lib/types";
 
 const DEFAULT_FILTERS: FilterState = { maxPrice: null, maxStops: null, airlines: new Set() };
@@ -86,6 +87,7 @@ export default function Home() {
       <div className="max-w-3xl mx-auto mt-8 space-y-6">
         {statusMessage && <StreamStatus message={statusMessage} isActive={isLoading} />}
         {error && <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">{error}</div>}
+        {isLoading && legResults.length === 0 && <SkeletonResults />}
         <FlightFilters legResults={legResults} filters={filters} onChange={setFilters} />
         <FlightResults legResults={filteredResults} summary={summary} />
       </div>

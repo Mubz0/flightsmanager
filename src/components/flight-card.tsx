@@ -21,7 +21,10 @@ export function FlightCard({ flight, isCheapest }: FlightCardProps) {
             <span className="text-gray-400">—</span>
             <span>{formatTime(flight.arrival_time)}</span>
           </div>
-          <div className="text-sm text-gray-500 mt-1">{flight.airline} &middot; {flight.flight_number}</div>
+          <div className="text-sm text-gray-500 mt-1">
+            {flight.airline} &middot; {flight.flight_number}
+            {flight.departure_date && <span className="ml-2 text-gray-400">{formatDate(flight.departure_date)}</span>}
+          </div>
         </div>
         <div className="flex-1 text-center">
           <div className="text-sm font-medium">{hours}h {mins > 0 ? `${mins}m` : ""}</div>
@@ -65,6 +68,11 @@ function formatTime(datetime: string): string {
   const timePart = datetime.split(" ")[1];
   if (!timePart) return datetime;
   return timePart.slice(0, 5);
+}
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
 function buildBookingUrl(flight: FlightResult): string {

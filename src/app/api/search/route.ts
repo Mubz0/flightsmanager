@@ -71,9 +71,21 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`,
             const settled = await Promise.allSettled(
               dates.map((d) => searchFlights(leg.origin, leg.destination, d, serpApiKey, intent.cabin_class))
             );
-            let flights = settled
+            const allFlights = settled
               .filter((r): r is PromiseFulfilledResult<FlightResult[]> => r.status === "fulfilled")
               .flatMap((r) => r.value);
+
+            // Deduplicate by flight number + departure time
+            const seen = new Map<string, FlightResult>();
+            for (const f of allFlights) {
+              const key = `${f.flight_number}-${f.departure_time}`;
+              if (!seen.has(key)) seen.set(key, f);
+            }
+            let flights = Array.from(seen.values());
+
+            // Sort by price after merging multiple dates
+            flights.sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
+
             flights = filterFlights(flights, {
               excludedAirports: intent.excluded_stopover_airports,
               maxStops: intent.max_stops,
