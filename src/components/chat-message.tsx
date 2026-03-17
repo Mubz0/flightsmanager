@@ -168,6 +168,19 @@ function ToolInvocationView({
         </div>
       );
     }
+    // Structured no-results or error response
+    if (output && typeof output === "object" && output.status) {
+      return (
+        <div className="space-y-2">
+          <ThinkingStepHeader label={label} isDone expanded={expanded} onToggle={() => setExpanded(!expanded)} />
+          {output.status === "no_results" && (
+            <div className="px-3 py-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg">
+              No matching flights found{output.cheapest_available ? ` (cheapest available: $${output.cheapest_available})` : ""}
+            </div>
+          )}
+        </div>
+      );
+    }
   }
 
   // For other tools or pending state

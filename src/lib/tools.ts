@@ -29,26 +29,55 @@ const searchFlightsSchema = z.object({
   returnDate: z.string().optional().describe("Return date in YYYY-MM-DD format. Include for round-trip searches, omit for one-way."),
   cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).optional().describe("Cabin class"),
   maxStops: z.number().optional().describe("Maximum number of stops"),
+  maxPrice: z.number().optional().describe("Maximum price in USD. Filters out flights above this budget."),
+  preferredAirlines: z.array(z.string()).optional().describe("Preferred airline names (e.g. ['Delta', 'United']). Results with these airlines are prioritized."),
+  excludedAirlines: z.array(z.string()).optional().describe("Airline names to exclude (e.g. ['Spirit', 'Frontier'])."),
 });
 
 export const searchFlightsTool = tool({
-  description: "Search for flights between two airports on a specific date. Supports one-way and round-trip. For round-trip, include returnDate — prices shown are total round-trip cost. Returns up to 8 flight options sorted by price.",
+  description: "Search for flights between two airports on a specific date. Supports one-way and round-trip. For round-trip, include returnDate — prices shown are total round-trip cost. Supports budget filtering (maxPrice), airline preferences, and airline exclusions. Returns up to 8 flight options sorted by price.",
   inputSchema: searchFlightsSchema,
   execute: async (input) => {
-    const { origin, destination, date, returnDate, cabinClass, maxStops } = input;
+    const { origin, destination, date, returnDate, cabinClass, maxStops, maxPrice, preferredAirlines, excludedAirlines } = input;
     const apiKey = process.env.SERPAPI_API_KEY;
-    if (!apiKey) return "SerpApi key not configured. Cannot search flights.";
+    if (!apiKey) return { status: "error", message: "SerpApi key not configured." };
     try {
       let flights = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate);
       if (maxStops !== undefined) {
         flights = filterFlights(flights, { maxStops });
       }
-      if (flights.length === 0) {
-        return `No flights found for ${origin} → ${destination} on ${date}${returnDate ? ` returning ${returnDate}` : ""}. Suggest the user try different dates or nearby airports.`;
+      if (excludedAirlines?.length) {
+        const excluded = excludedAirlines.map((a) => a.toLowerCase());
+        flights = flights.filter((f) => !excluded.includes(f.airline.toLowerCase()));
       }
-      return pruneFlights(flights);
+      const withinBudget = maxPrice ? flights.filter((f) => f.price <= maxPrice) : flights;
+      const preferredMatches = preferredAirlines?.length
+        ? withinBudget.filter((f) => preferredAirlines.some((a) => f.airline.toLowerCase().includes(a.toLowerCase())))
+        : [];
+      const otherFlights = preferredAirlines?.length
+        ? withinBudget.filter((f) => !preferredAirlines.some((a) => f.airline.toLowerCase().includes(a.toLowerCase())))
+        : withinBudget;
+      const sorted = [...preferredMatches, ...otherFlights];
+
+      if (sorted.length === 0) {
+        // Provide structured fallback with context for the LLM
+        const cheapest = flights.length > 0 ? flights[0].price : null;
+        return {
+          status: "no_results",
+          message: `No flights match your criteria for ${origin} → ${destination} on ${date}.`,
+          cheapest_available: cheapest,
+          total_unfiltered: flights.length,
+          filters_applied: { maxPrice, maxStops, preferredAirlines, excludedAirlines },
+          suggestions: [
+            maxPrice && cheapest && cheapest > maxPrice ? `Cheapest available is $${cheapest} (over your $${maxPrice} budget). Consider increasing budget or trying adjacent dates.` : null,
+            preferredAirlines?.length ? `No ${preferredAirlines.join("/")} flights found. Other airlines are available.` : null,
+            flights.length === 0 ? "No flights at all on this route/date. Try different dates or nearby airports." : null,
+          ].filter(Boolean),
+        };
+      }
+      return pruneFlights(sorted);
     } catch (error) {
-      return `Search failed for ${origin} → ${destination} on ${date}. Do not retry with the same parameters. Suggest the user try different dates.`;
+      return { status: "error", message: `Search failed for ${origin} → ${destination} on ${date}. Do not retry with the same parameters.`, suggestions: ["Try different dates", "Try nearby airports"] };
     }
   },
 });
