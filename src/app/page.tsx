@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
+import type { TravelProfile } from "@/lib/travel-profile";
 
 const STORAGE_KEY = "flightsmanager-chat";
+const PROFILE_KEY = "flightsmanager-profile";
 
 const EXAMPLE_PROMPTS = [
   "Cheapest flight from Bangkok to London on March 23, no UAE stopovers",
@@ -25,22 +28,48 @@ function loadMessages(): UIMessage[] {
 function saveMessages(messages: UIMessage[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  } catch { /* quota exceeded — silently ignore */ }
+  } catch { /* quota exceeded */ }
+}
+
+function loadProfile(): TravelProfile {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveProfile(profile: TravelProfile) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  } catch { /* quota exceeded */ }
 }
 
 export default function Home() {
-  const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat();
+  const [profile, setProfile] = useState<TravelProfile>({});
+  const profileRef = useRef<TravelProfile>({});
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: "/api/chat",
+    body: () => ({ travelProfile: profileRef.current }),
+  }), []);
+  const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
+    transport,
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
+  const extractingRef = useRef(false);
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Restore messages from localStorage on mount
+  // Restore messages and profile from localStorage on mount
   useEffect(() => {
     if (!restoredRef.current) {
       restoredRef.current = true;
       const saved = loadMessages();
       if (saved.length > 0) setMessages(saved);
+      const savedProfile = loadProfile();
+      setProfile(savedProfile);
+      profileRef.current = savedProfile;
     }
   }, [setMessages]);
 
@@ -48,6 +77,39 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading && messages.length > 0) {
       saveMessages(messages);
+    }
+  }, [messages, isLoading]);
+
+  // Extract profile updates after each assistant response completes
+  useEffect(() => {
+    if (!isLoading && messages.length >= 2 && !extractingRef.current) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === "assistant") {
+        extractingRef.current = true;
+        fetch("/api/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: messages.slice(-6) }),
+        })
+          .then((r) => r.json())
+          .then(({ profile: updates }) => {
+            if (updates && Object.keys(updates).length > 0) {
+              setProfile((prev) => {
+                const merged = { ...prev };
+                for (const [key, value] of Object.entries(updates)) {
+                  if (value === null || value === undefined) continue;
+                  if (Array.isArray(value) && (value as any[]).length === 0) continue;
+                  (merged as any)[key] = value;
+                }
+                saveProfile(merged);
+                profileRef.current = merged;
+                return merged;
+              });
+            }
+          })
+          .catch(() => {})
+          .finally(() => { extractingRef.current = false; });
+      }
     }
   }, [messages, isLoading]);
 
@@ -62,7 +124,12 @@ export default function Home() {
     setMessages([]);
     clearError();
     localStorage.removeItem(STORAGE_KEY);
+    // Keep profile — it persists across chats
   }, [setMessages, clearError]);
+
+  const hasProfile = Object.values(profile).some((v) =>
+    Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined
+  );
 
   return (
     <main className="flex flex-col h-screen">
@@ -73,7 +140,12 @@ export default function Home() {
           <h1 className="text-xl font-bold text-gray-900">FlightsManager</h1>
           <p className="text-xs text-gray-500">AI travel agent</p>
         </div>
-        <div className="w-20 flex justify-end">
+        <div className="w-20 flex justify-end gap-1">
+          {hasProfile && (
+            <span className="px-2 py-1 text-[10px] text-purple-600 bg-purple-50 rounded-lg" title="Travel profile active">
+              Profile
+            </span>
+          )}
           {messages.length > 0 && (
             <button
               onClick={handleNewChat}

@@ -49,14 +49,33 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
   Action: Call resolveNearbyAirports("London"), then findAlternativeDates.`;
 
 export async function POST(request: Request) {
-  const { messages } = await request.json();
+  const { messages, travelProfile } = await request.json();
+
+  // Build dynamic system prompt with travel profile if available
+  let systemPrompt = SYSTEM_PROMPT;
+  if (travelProfile && Object.keys(travelProfile).length > 0) {
+    const parts: string[] = [];
+    if (travelProfile.homeAirport) parts.push(`Home airport: ${travelProfile.homeAirport}`);
+    if (travelProfile.preferredAirlines?.length) parts.push(`Preferred airlines: ${travelProfile.preferredAirlines.join(", ")}`);
+    if (travelProfile.excludedAirlines?.length) parts.push(`Excluded airlines: ${travelProfile.excludedAirlines.join(", ")}`);
+    if (travelProfile.loyaltyPrograms?.length) parts.push(`Loyalty programs: ${travelProfile.loyaltyPrograms.join(", ")}`);
+    if (travelProfile.maxBudget) parts.push(`Default budget: $${travelProfile.maxBudget}`);
+    if (travelProfile.cabinClass) parts.push(`Preferred cabin: ${travelProfile.cabinClass}`);
+    if (travelProfile.maxStops !== undefined) parts.push(`Max stops: ${travelProfile.maxStops}`);
+    if (travelProfile.maxLayoverHours) parts.push(`Max layover: ${travelProfile.maxLayoverHours}h`);
+    if (travelProfile.timePreference) parts.push(`Time preference: ${travelProfile.timePreference}`);
+    if (travelProfile.notes?.length) parts.push(`Notes: ${travelProfile.notes.join("; ")}`);
+    if (parts.length > 0) {
+      systemPrompt += `\n\n## User Travel Profile (apply implicitly unless overridden)\n${parts.join("\n")}`;
+    }
+  }
 
   const azure = getAzureOpenAI();
   const model = azure.chat(getDeploymentName());
 
   const result = streamText({
     model,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: await convertToModelMessages(messages),
     tools: {
       searchFlights: searchFlightsTool,
