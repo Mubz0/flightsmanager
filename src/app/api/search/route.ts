@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         sendEvent(controller, { type: "status", message: "Parsing your trip..." });
 
         const azure = getAzureOpenAI();
-        const model = azure(getDeploymentName());
+        const model = azure.chat(getDeploymentName());
 
         const { toolCalls } = await generateText({
           model,
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
           toolChoice: { type: "tool", toolName: "search_flights" },
           prompt: query,
           system: `You are a flight search assistant. Parse the user's travel request into a structured search.
-Always convert city names to IATA airport codes.
+Always convert city names to IATA airport codes. Use specific airport codes, not city codes:
+- London → LHR (not LON), New York → JFK (not NYC), Tokyo → NRT (not TYO), Paris → CDG (not PAR)
+- Bangkok → BKK, Shenzhen → SZX, Hong Kong → HKG, Shanghai → PVG, Beijing → PEK
 For vague dates like "late March", pick a specific date and set date_flexibility to 2-3.
 For "no UAE", set excluded_stopover_airports to ["DXB", "AUH", "SHJ"].
 For "no Qatar", add "DOH" to excluded_stopover_airports.
