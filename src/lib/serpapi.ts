@@ -17,12 +17,9 @@ export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string
   return all.map((f) => {
     const first = f.flights[0], last = f.flights[f.flights.length - 1];
     const layovers: Layover[] = (f.layovers || []).map((l) => ({ airport: l.id, city: l.name, country: "", duration_minutes: l.duration }));
-    return { airline: first.airline, flight_number: first.flight_number, departure_time: first.departure_airport.time, arrival_time: last.arrival_airport.time, duration_minutes: f.total_duration, origin: first.departure_airport.id, destination: last.arrival_airport.id, stops: f.flights.length - 1, layovers, price: f.price, currency, cabin_class: "economy", co2_emissions_kg: f.carbon_emissions ? Math.round(f.carbon_emissions.this_flight / 1000) : undefined, booking_token: f.booking_token };
+    const depDate = first.departure_airport.time.split(" ")[0];
+    return { airline: first.airline, flight_number: first.flight_number, departure_time: first.departure_airport.time, arrival_time: last.arrival_airport.time, duration_minutes: f.total_duration, origin: first.departure_airport.id, destination: last.arrival_airport.id, stops: f.flights.length - 1, layovers, price: f.price, currency, cabin_class: "economy", co2_emissions_kg: f.carbon_emissions ? Math.round(f.carbon_emissions.this_flight / 1000) : undefined, booking_token: f.booking_token, departure_date: depDate };
   });
-}
-
-export function getBookingUrl(bookingToken: string): string {
-  return `https://www.google.com/travel/flights/booking?token=${encodeURIComponent(bookingToken)}`;
 }
 
 export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string): Promise<FlightResult[]> {
