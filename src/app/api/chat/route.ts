@@ -1,4 +1,4 @@
-import { streamText, stepCountIs } from "ai";
+import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { getAzureOpenAI, getDeploymentName } from "@/lib/openai";
 import { searchFlightsTool, findAlternativeDatesTool, resolveNearbyAirportsTool } from "@/lib/tools";
 
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const result = streamText({
     model,
     system: SYSTEM_PROMPT,
-    messages,
+    messages: await convertToModelMessages(messages),
     tools: {
       searchFlights: searchFlightsTool,
       findAlternativeDates: findAlternativeDatesTool,
