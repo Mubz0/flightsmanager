@@ -1,9 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { FlightCard } from "./flight-card";
 import type { FlightResult } from "@/lib/types";
+
+// Simple markdown-to-JSX: bold and links
+function renderMarkdown(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+  return parts.map((part, i) => {
+    const boldMatch = part.match(/^\*\*(.+)\*\*$/);
+    if (boldMatch) return <strong key={i}>{boldMatch[1]}</strong>;
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) return <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{linkMatch[1]}</a>;
+    return <span key={i}>{part}</span>;
+  });
+}
 
 interface ChatMessageProps {
   message: UIMessage;
@@ -54,7 +66,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           if (!part.text) return null;
           return (
             <div key={i} className="max-w-[80%] px-4 py-3 rounded-2xl bg-gray-100 text-gray-900">
-              {part.text}
+              {renderMarkdown(part.text)}
             </div>
           );
         }
@@ -66,7 +78,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             part.type === "dynamic-tool"
               ? (part as any).toolName
               : part.type.replace("tool-", "");
-          const isDone = (part as any).state === "result";
+          const isDone = (part as any).state === "output-available";
           const input = (part as any).input;
           const output = (part as any).output;
           return (
