@@ -51,7 +51,7 @@ export default function Home() {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 && !isLoading && (
             <div className="text-center py-12">
@@ -93,7 +93,7 @@ export default function Home() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 px-4 py-3">
+      <div className="border-t border-gray-200 px-2 sm:px-4 py-3">
         <div className="max-w-3xl mx-auto">
           <ChatInput
             onSend={(text) => sendMessage({ text })}

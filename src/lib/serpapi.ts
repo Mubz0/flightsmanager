@@ -1,4 +1,11 @@
+import { LRUCache } from "lru-cache";
 import type { FlightResult, Layover } from "./types";
+
+// Cache SerpApi results for 30 minutes, max 200 entries
+const flightCache = new LRUCache<string, FlightResult[]>({
+  max: 200,
+  ttl: 30 * 60 * 1000, // 30 minutes
+});
 
 interface BuildUrlParams { origin: string; destination: string; date: string; apiKey: string; cabinClass?: string; }
 
@@ -24,8 +31,15 @@ export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string
 }
 
 export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string): Promise<FlightResult[]> {
+  const cacheKey = `${origin}-${destination}-${date}-${cabinClass || "economy"}`;
+  const cached = flightCache.get(cacheKey);
+  if (cached) return cached;
+
   const url = buildSerpApiUrl({ origin, destination, date, apiKey, cabinClass });
   const r = await fetch(url);
   if (!r.ok) throw new Error(`SerpApi request failed: ${r.status} ${r.statusText}`);
-  return normalizeSerpApiResponse(await r.json(), "USD");
+  const results = normalizeSerpApiResponse(await r.json(), "USD");
+
+  flightCache.set(cacheKey, results);
+  return results;
 }
