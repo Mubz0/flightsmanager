@@ -7,8 +7,8 @@ import { ChatInput } from "@/components/chat-input";
 
 const EXAMPLE_PROMPTS = [
   "Cheapest flight from Bangkok to London on March 23, no UAE stopovers",
+  "Round trip SFO to Tokyo, Mar 28 returning Apr 5",
   "BKK to CNX one way, cheapest day in late March",
-  "Shenzhen to London via Shanghai, flexible dates March 25-30",
 ];
 
 export default function Home() {

@@ -31,6 +31,7 @@ export interface FlightResult {
   booking_token?: string;
   departure_date?: string;
   google_flights_url?: string;
+  trip_type?: "one_way" | "round_trip";
 }
 
 export interface Layover {

@@ -18,6 +18,7 @@ function pruneFlights(flights: FlightResult[], max = 8) {
     currency: f.currency,
     departure_date: f.departure_date,
     google_flights_url: f.google_flights_url,
+    trip_type: f.trip_type,
   }));
 }
 
@@ -25,24 +26,25 @@ const searchFlightsSchema = z.object({
   origin: z.string().describe("Origin IATA airport code (e.g. JFK, BKK, LHR)"),
   destination: z.string().describe("Destination IATA airport code"),
   date: z.string().describe("Departure date in YYYY-MM-DD format"),
+  returnDate: z.string().optional().describe("Return date in YYYY-MM-DD format. Include for round-trip searches, omit for one-way."),
   cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).optional().describe("Cabin class"),
   maxStops: z.number().optional().describe("Maximum number of stops"),
 });
 
 export const searchFlightsTool = tool({
-  description: "Search for flights between two airports on a specific date. Returns up to 8 flight options sorted by price.",
+  description: "Search for flights between two airports on a specific date. Supports one-way and round-trip. For round-trip, include returnDate — prices shown are total round-trip cost. Returns up to 8 flight options sorted by price.",
   inputSchema: searchFlightsSchema,
   execute: async (input) => {
-    const { origin, destination, date, cabinClass, maxStops } = input;
+    const { origin, destination, date, returnDate, cabinClass, maxStops } = input;
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) return "SerpApi key not configured. Cannot search flights.";
     try {
-      let flights = await searchFlights(origin, destination, date, apiKey, cabinClass);
+      let flights = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate);
       if (maxStops !== undefined) {
         flights = filterFlights(flights, { maxStops });
       }
       if (flights.length === 0) {
-        return `No flights found for ${origin} → ${destination} on ${date}. Suggest the user try different dates or nearby airports.`;
+        return `No flights found for ${origin} → ${destination} on ${date}${returnDate ? ` returning ${returnDate}` : ""}. Suggest the user try different dates or nearby airports.`;
       }
       return pruneFlights(flights);
     } catch (error) {

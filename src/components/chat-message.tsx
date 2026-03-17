@@ -56,6 +56,7 @@ function toFlightResult(pruned: any): FlightResult {
     cabin_class: "",
     departure_date: pruned.departure_date,
     google_flights_url: pruned.google_flights_url,
+    trip_type: pruned.trip_type,
   };
 }
 

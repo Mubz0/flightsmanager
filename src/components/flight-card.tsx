@@ -21,7 +21,10 @@ export function FlightCard({ flight, isCheapest }: FlightCardProps) {
             <span className="text-gray-400">—</span>
             <span>{formatTime(flight.arrival_time)}</span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-gray-900 sm:hidden">${flight.price}</div>
+          <div className="text-xl sm:text-2xl font-bold text-gray-900 sm:hidden">
+            ${flight.price}
+            {flight.trip_type === "round_trip" && <span className="text-xs font-normal text-gray-500 ml-1">RT</span>}
+          </div>
         </div>
         <div className="flex items-center sm:block sm:flex-1 sm:text-center gap-3">
           <div className="text-xs sm:text-sm text-gray-500">
@@ -36,7 +39,7 @@ export function FlightCard({ flight, isCheapest }: FlightCardProps) {
         <div className="flex items-center justify-between sm:block sm:text-right">
           <div className="hidden sm:block">
             <div className="text-2xl font-bold text-gray-900">${flight.price}</div>
-            <div className="text-xs text-gray-500">{flight.currency}</div>
+            <div className="text-xs text-gray-500">{flight.currency}{flight.trip_type === "round_trip" && " round-trip"}</div>
           </div>
           <a
             href={buildBookingUrl(flight)}
