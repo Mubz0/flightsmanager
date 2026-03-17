@@ -264,7 +264,17 @@ export const searchHotelsTool = tool({
 
       return pruneHotels(hotels);
     } catch (error) {
-      return { status: "error", message: `Hotel search failed for ${q}. Do not retry with the same parameters.`, suggestions: ["Try a different location", "Try different dates"] };
+      const msg = error instanceof Error ? error.message : String(error);
+      const isPastDate = msg.includes("cannot be in the past");
+      return {
+        status: "error",
+        message: isPastDate
+          ? `Check-in date ${checkInDate} is in the past. Please use a future date.`
+          : `Hotel search failed for ${q}: ${msg}. Do not retry with the same parameters.`,
+        suggestions: isPastDate
+          ? ["Use a future check-in date"]
+          : ["Try a different location", "Try different dates"],
+      };
     }
   },
 });

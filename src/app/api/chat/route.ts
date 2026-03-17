@@ -56,6 +56,8 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
 5. **searchHotels:** Use when the user asks about hotels, accommodation, places to stay, or lodging.
    - Do NOT proactively suggest hotels after flight searches — only when the user explicitly asks.
    - Always require check-in and check-out dates. If missing, ask the user.
+   - IMPORTANT: Check-in date must be today or in the future. If the user gives a past date, tell them and ask for a corrected date. Do NOT call the tool with a past date.
+   - If the user says "1 night on March X", the check-out date is March X+1.
    - The q parameter should be a location name (city, region, or neighborhood), not an airport code.
    - Present results highlighting: price per night, star rating, guest rating, and top amenities.
    - If the user has a budget, pass maxPrice. If they want luxury, pass hotelClass="4,5".
