@@ -47,7 +47,35 @@ export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string
   });
 }
 
-export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string, currency = "USD"): Promise<SearchResult> {
+// Multi-airport city codes that SerpApi doesn't support directly.
+// Maps city code → individual airport IATA codes to search in parallel.
+const CITY_AIRPORT_MAP: Record<string, string[]> = {
+  LON: ["LHR", "LGW", "STN", "LTN", "LCY"],
+  NYC: ["JFK", "EWR", "LGA"],
+  PAR: ["CDG", "ORY"],
+  TYO: ["NRT", "HND"],
+  CHI: ["ORD", "MDW"],
+  WAS: ["IAD", "DCA", "BWI"],
+  MIL: ["MXP", "LIN"],
+  BUE: ["EZE", "AEP"],
+  MOW: ["SVO", "DME", "VKO"],
+  SAO: ["GRU", "CGH"],
+  SEL: ["ICN", "GMP"],
+  BJS: ["PEK", "PKX"],
+  OSA: ["KIX", "ITM"],
+  STO: ["ARN", "BMA"],
+  BER: ["BER"],
+  ROM: ["FCO", "CIA"],
+  MEX: ["MEX"],
+  YTO: ["YYZ", "YTZ"],
+  YMQ: ["YUL", "YMX"],
+};
+
+function expandCityCode(code: string): string[] | null {
+  return CITY_AIRPORT_MAP[code.toUpperCase()] || null;
+}
+
+async function searchSingleRoute(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string, currency = "USD"): Promise<SearchResult> {
   const cacheKey = `${origin}-${destination}-${date}-${returnDate || "oneway"}-${cabinClass || "economy"}-${currency}`;
   const cached = flightCache.get(cacheKey);
   if (cached) return cached;
@@ -63,4 +91,44 @@ export async function searchFlights(origin: string, destination: string, date: s
 
   flightCache.set(cacheKey, result);
   return result;
+}
+
+export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string, currency = "USD"): Promise<SearchResult> {
+  // Expand multi-airport city codes (e.g. LON → LHR, LGW, STN, ...)
+  const originCodes = expandCityCode(origin) || [origin];
+  const destCodes = expandCityCode(destination) || [destination];
+
+  // If no expansion needed, do a single search
+  if (originCodes.length === 1 && destCodes.length === 1) {
+    return searchSingleRoute(originCodes[0], destCodes[0], date, apiKey, cabinClass, returnDate, currency);
+  }
+
+  // Search all origin×destination combinations in parallel
+  const pairs: Array<[string, string]> = [];
+  for (const o of originCodes) {
+    for (const d of destCodes) {
+      pairs.push([o, d]);
+    }
+  }
+
+  const settled = await Promise.allSettled(
+    pairs.map(([o, d]) => searchSingleRoute(o, d, date, apiKey, cabinClass, returnDate, currency))
+  );
+
+  const allFlights: FlightResult[] = [];
+  let bestInsights: PriceInsights | null = null;
+
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      allFlights.push(...result.value.flights);
+      if (!bestInsights && result.value.priceInsights) {
+        bestInsights = result.value.priceInsights;
+      }
+    }
+  }
+
+  // Sort by price and deduplicate by flight number + date
+  allFlights.sort((a, b) => a.price - b.price);
+
+  return { flights: allFlights, priceInsights: bestInsights };
 }
