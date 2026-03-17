@@ -3,57 +3,70 @@ import type { FlightResult } from "@/lib/types";
 interface FlightCardProps {
   flight: FlightResult;
   isCheapest?: boolean;
+  onPin?: (flight: FlightResult) => void;
+  isPinned?: boolean;
 }
 
-export function FlightCard({ flight, isCheapest }: FlightCardProps) {
+export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardProps) {
   const hours = Math.floor(flight.duration_minutes / 60);
   const mins = flight.duration_minutes % 60;
 
   return (
-    <div className={`relative p-4 rounded-lg border ${isCheapest ? "border-green-500 bg-green-50" : "border-gray-200 bg-white"} hover:shadow-md transition-shadow`}>
+    <div className={`relative p-4 rounded-lg border ${isCheapest ? "border-green-500 bg-green-50 dark:bg-green-950" : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"} hover:shadow-md transition-shadow`}>
       {isCheapest && (
         <span className="absolute -top-2 left-3 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded">CHEAPEST</span>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center justify-between sm:block sm:flex-1">
-          <div className="flex items-center gap-2 text-base sm:text-lg font-semibold">
+          <div className="flex items-center gap-2 text-base sm:text-lg font-semibold dark:text-gray-100">
             <span>{formatTime(flight.departure_time)}</span>
             <span className="text-gray-400">—</span>
             <span>{formatTime(flight.arrival_time)}</span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-gray-900 sm:hidden">
-            ${flight.price}
+          <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 sm:hidden">
+            {formatPrice(flight.price, flight.currency)}
             {flight.trip_type === "round_trip" && <span className="text-xs font-normal text-gray-500 ml-1">RT</span>}
           </div>
         </div>
         <div className="flex items-center sm:block sm:flex-1 sm:text-center gap-3">
-          <div className="text-xs sm:text-sm text-gray-500">
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
             {flight.airline} &middot; {flight.flight_number}
             {flight.departure_date && <span className="ml-1 text-gray-400">{formatDate(flight.departure_date)}</span>}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {hours}h{mins > 0 ? ` ${mins}m` : ""} &middot; {flight.stops === 0 ? "Non-stop" : `${flight.stops} stop${flight.stops > 1 ? "s" : ""}`}
             {flight.layovers.length > 0 && ` (${flight.layovers.map((l) => l.airport).join(", ")})`}
           </div>
         </div>
         <div className="flex items-center justify-between sm:block sm:text-right">
           <div className="hidden sm:block">
-            <div className="text-2xl font-bold text-gray-900">${flight.price}</div>
-            <div className="text-xs text-gray-500">{flight.currency}{flight.trip_type === "round_trip" && " round-trip"}</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatPrice(flight.price, flight.currency)}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{flight.currency}{flight.trip_type === "round_trip" && " round-trip"}</div>
           </div>
-          <a
-            href={buildBookingUrl(flight)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block px-4 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Book →
-          </a>
+          <div className="flex items-center gap-2">
+            {onPin && (
+              <button
+                onClick={() => onPin(flight)}
+                className={`px-2 py-1.5 text-xs rounded-lg transition-colors ${isPinned ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300" : "bg-gray-100 text-gray-500 hover:bg-yellow-100 hover:text-yellow-700 dark:bg-gray-800 dark:text-gray-400"}`}
+                title={isPinned ? "Pinned" : "Pin to compare"}
+              >
+                {isPinned ? "Pinned" : "Pin"}
+              </button>
+            )}
+            <a
+              href={buildBookingUrl(flight)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-4 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Book
+            </a>
+          </div>
         </div>
       </div>
       {flight.layovers.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <div className="flex gap-4 text-xs text-gray-500">
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
             {flight.layovers.map((l, i) => (
               <span key={i}>{l.airport}: {Math.floor(l.duration_minutes / 60)}h {l.duration_minutes % 60}m layover</span>
             ))}
@@ -73,6 +86,12 @@ function formatTime(datetime: string): string {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatPrice(price: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(price);
+  } catch { return `${currency} ${price}`; }
 }
 
 function buildBookingUrl(flight: FlightResult): string {

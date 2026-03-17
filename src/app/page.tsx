@@ -6,6 +6,8 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
+import { PinProvider, usePins } from "@/components/pin-context";
+import { PinnedFlightsDrawer } from "@/components/pinned-flights";
 import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 
@@ -49,9 +51,12 @@ function saveProfile(profile: TravelProfile) {
 export default function Home() {
   const [profile, setProfile] = useState<TravelProfile>({});
   const profileRef = useRef<TravelProfile>({});
+  const [currency, setCurrency] = useState("USD");
+  const currencyRef = useRef("USD");
+  const [dark, setDark] = useState(false);
   const transport = useMemo(() => new DefaultChatTransport({
     api: "/api/chat",
-    body: () => ({ travelProfile: profileRef.current }),
+    body: () => ({ travelProfile: profileRef.current, currency: currencyRef.current }),
   }), []);
   const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
     transport,
@@ -71,6 +76,10 @@ export default function Home() {
       const savedProfile = loadProfile();
       setProfile(savedProfile);
       profileRef.current = savedProfile;
+      // Restore dark mode
+      const savedDark = localStorage.getItem("flightsmanager-dark") === "true";
+      setDark(savedDark);
+      if (savedDark) document.documentElement.classList.add("dark");
     }
   }, [setMessages]);
 
@@ -121,6 +130,15 @@ export default function Home() {
     }
   }, [messages, isLoading]);
 
+  const toggleDark = useCallback(() => {
+    setDark((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle("dark", next);
+      localStorage.setItem("flightsmanager-dark", String(next));
+      return next;
+    });
+  }, []);
+
   const handleNewChat = useCallback(() => {
     setMessages([]);
     clearError();
@@ -145,17 +163,31 @@ export default function Home() {
   );
 
   return (
+    <PinProvider>
     <main className="flex flex-col h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-        <div className="w-20" />
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="w-20">
+          <button onClick={toggleDark} className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            {dark ? "Light" : "Dark"}
+          </button>
+        </div>
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900">FlightsManager</h1>
-          <p className="text-xs text-gray-500">AI travel agent</p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">FlightsManager</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">AI travel agent</p>
         </div>
         <div className="flex justify-end items-center gap-1">
+          <select
+            value={currency}
+            onChange={(e) => { setCurrency(e.target.value); currencyRef.current = e.target.value; }}
+            className="px-1.5 py-1 text-[10px] text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 border-none rounded-lg cursor-pointer"
+          >
+            {["USD", "EUR", "GBP", "JPY", "THB", "CNY", "AUD", "CAD", "SGD", "INR"].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           {hasProfile && (
-            <span className="px-2 py-1 text-[10px] text-purple-600 bg-purple-50 rounded-lg" title="Travel profile active">
+            <span className="px-2 py-1 text-[10px] text-purple-600 bg-purple-50 dark:bg-purple-950 dark:text-purple-300 rounded-lg" title="Travel profile active">
               Profile
             </span>
           )}
@@ -183,13 +215,13 @@ export default function Home() {
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 && !isLoading && (
             <div className="text-center py-12">
-              <p className="text-gray-400 mb-6">Try one of these:</p>
+              <p className="text-gray-400 dark:text-gray-500 mb-6">Try one of these:</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {EXAMPLE_PROMPTS.map((prompt, i) => (
                   <button
                     key={i}
                     onClick={() => sendMessage({ text: prompt })}
-                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors"
+                    className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                   >
                     {prompt}
                   </button>
@@ -221,7 +253,7 @@ export default function Home() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 px-2 sm:px-4 py-3">
+      <div className="border-t border-gray-200 dark:border-gray-700 px-2 sm:px-4 py-3">
         <div className="max-w-3xl mx-auto">
           <ChatInput
             onSend={(text) => sendMessage({ text })}
@@ -230,6 +262,13 @@ export default function Home() {
           />
         </div>
       </div>
+      <PinnedDrawerWrapper />
     </main>
+    </PinProvider>
   );
+}
+
+function PinnedDrawerWrapper() {
+  const { pinned, unpin, clear } = usePins();
+  return <PinnedFlightsDrawer flights={pinned} onRemove={unpin} onClear={clear} />;
 }

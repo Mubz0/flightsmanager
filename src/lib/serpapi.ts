@@ -7,12 +7,12 @@ const flightCache = new LRUCache<string, SearchResult>({
   ttl: 30 * 60 * 1000, // 30 minutes
 });
 
-interface BuildUrlParams { origin: string; destination: string; date: string; apiKey: string; cabinClass?: string; returnDate?: string; }
+interface BuildUrlParams { origin: string; destination: string; date: string; apiKey: string; cabinClass?: string; returnDate?: string; currency?: string; }
 
 export function buildSerpApiUrl(params: BuildUrlParams): string {
-  const { origin, destination, date, apiKey, cabinClass, returnDate } = params;
+  const { origin, destination, date, apiKey, cabinClass, returnDate, currency = "USD" } = params;
   const type = returnDate ? "1" : "2"; // 1 = round-trip, 2 = one-way
-  const sp = new URLSearchParams({ engine: "google_flights", departure_id: origin, arrival_id: destination, outbound_date: date, type, currency: "USD", hl: "en", api_key: apiKey });
+  const sp = new URLSearchParams({ engine: "google_flights", departure_id: origin, arrival_id: destination, outbound_date: date, type, currency, hl: "en", api_key: apiKey });
   if (returnDate) sp.set("return_date", returnDate);
   if (cabinClass) { const m: Record<string,string> = { economy: "1", premium_economy: "2", business: "3", first: "4" }; sp.set("travel_class", m[cabinClass] || "1"); }
   return `https://serpapi.com/search?${sp.toString()}`;
@@ -47,17 +47,17 @@ export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string
   });
 }
 
-export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string): Promise<SearchResult> {
-  const cacheKey = `${origin}-${destination}-${date}-${returnDate || "oneway"}-${cabinClass || "economy"}`;
+export async function searchFlights(origin: string, destination: string, date: string, apiKey: string, cabinClass?: string, returnDate?: string, currency = "USD"): Promise<SearchResult> {
+  const cacheKey = `${origin}-${destination}-${date}-${returnDate || "oneway"}-${cabinClass || "economy"}-${currency}`;
   const cached = flightCache.get(cacheKey);
   if (cached) return cached;
 
-  const url = buildSerpApiUrl({ origin, destination, date, apiKey, cabinClass, returnDate });
+  const url = buildSerpApiUrl({ origin, destination, date, apiKey, cabinClass, returnDate, currency });
   const r = await fetch(url);
   if (!r.ok) throw new Error(`SerpApi request failed: ${r.status} ${r.statusText}`);
   const data = await r.json();
   const result: SearchResult = {
-    flights: normalizeSerpApiResponse(data, "USD", !!returnDate),
+    flights: normalizeSerpApiResponse(data, currency, !!returnDate),
     priceInsights: extractPriceInsights(data),
   };
 

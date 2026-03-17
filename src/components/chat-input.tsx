@@ -25,7 +25,7 @@ export function ChatInput({ onSend, onStop, isLoading }: ChatInputProps) {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Ask about flights... e.g. 'cheapest flight from Bangkok to London next week'"
-        className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+        className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 outline-none transition-all text-sm"
         disabled={isLoading}
       />
       {isLoading ? (

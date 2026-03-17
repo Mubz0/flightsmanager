@@ -30,7 +30,8 @@ const searchFlightsSchema = z.object({
   returnDate: z.string().optional().describe("Return date in YYYY-MM-DD format. Include for round-trip searches, omit for one-way."),
   cabinClass: z.enum(["economy", "premium_economy", "business", "first"]).optional().describe("Cabin class"),
   maxStops: z.number().optional().describe("Maximum number of stops"),
-  maxPrice: z.number().optional().describe("Maximum price in USD. Filters out flights above this budget."),
+  currency: z.string().optional().describe("Currency code (e.g. USD, EUR, GBP). Defaults to USD."),
+  maxPrice: z.number().optional().describe("Maximum price. Filters out flights above this budget."),
   preferredAirlines: z.array(z.string()).optional().describe("Preferred airline names (e.g. ['Delta', 'United']). Results with these airlines are prioritized."),
   excludedAirlines: z.array(z.string()).optional().describe("Airline names to exclude (e.g. ['Spirit', 'Frontier'])."),
 });
@@ -39,11 +40,11 @@ export const searchFlightsTool = tool({
   description: "Search for flights between two airports on a specific date. Supports one-way and round-trip. For round-trip, include returnDate — prices shown are total round-trip cost. Supports budget filtering (maxPrice), airline preferences, and airline exclusions. Returns up to 8 flight options sorted by price.",
   inputSchema: searchFlightsSchema,
   execute: async (input) => {
-    const { origin, destination, date, returnDate, cabinClass, maxStops, maxPrice, preferredAirlines, excludedAirlines } = input;
+    const { origin, destination, date, returnDate, cabinClass, maxStops, maxPrice, preferredAirlines, excludedAirlines, currency } = input;
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) return { status: "error", message: "SerpApi key not configured." };
     try {
-      const { flights: allFlights, priceInsights } = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate);
+      const { flights: allFlights, priceInsights } = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate, currency);
       let flights = allFlights;
       if (maxStops !== undefined) {
         flights = filterFlights(flights, { maxStops });

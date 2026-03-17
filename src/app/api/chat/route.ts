@@ -49,7 +49,7 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
   Action: Call resolveNearbyAirports("London"), then findAlternativeDates.`;
 
 export async function POST(request: Request) {
-  const { messages, travelProfile } = await request.json();
+  const { messages, travelProfile, currency = "USD" } = await request.json();
 
   // Build dynamic system prompt with travel profile if available
   let systemPrompt = SYSTEM_PROMPT;
@@ -68,6 +68,10 @@ export async function POST(request: Request) {
     if (parts.length > 0) {
       systemPrompt += `\n\n## User Travel Profile (apply implicitly unless overridden)\n${parts.join("\n")}`;
     }
+  }
+
+  if (currency !== "USD") {
+    systemPrompt += `\n\n## Currency\nThe user has selected ${currency} as their preferred currency. Always pass currency="${currency}" to the searchFlights tool.`;
   }
 
   const azure = getAzureOpenAI();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { FlightCard } from "./flight-card";
 import { SkeletonCard } from "./skeleton-card";
+import { usePins } from "./pin-context";
 import type { FlightResult } from "@/lib/types";
 
 // Simple markdown-to-JSX: bold, links, and line breaks
@@ -81,7 +82,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         if (part.type === "text") {
           if (!part.text) return null;
           return (
-            <div key={i} className="max-w-[80%] px-4 py-3 rounded-2xl bg-gray-100 text-gray-900 text-sm leading-relaxed">
+            <div key={i} className="max-w-[80%] px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm leading-relaxed">
               {renderMarkdown(part.text)}
             </div>
           );
@@ -125,6 +126,7 @@ function ToolInvocationView({
   isDone: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { pin, isPinned } = usePins();
 
   const label =
     toolName === "searchFlights"
@@ -165,7 +167,7 @@ function ToolInvocationView({
           {priceInsights && <PriceInsightsBadge insights={priceInsights} />}
           <div className="space-y-2">
             {flights.slice(0, 5).map((flight, j) => (
-              <FlightCard key={j} flight={flight} isCheapest={j === 0} />
+              <FlightCard key={j} flight={flight} isCheapest={j === 0} onPin={pin} isPinned={isPinned(flight)} />
             ))}
           </div>
         </div>
