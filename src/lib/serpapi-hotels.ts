@@ -88,7 +88,7 @@ function buildHotelUrl(query: string, checkIn: string, checkOut: string, apiKey:
 
 function buildGoogleHotelsUrl(hotelName: string, checkIn: string, checkOut: string): string {
   const q = encodeURIComponent(hotelName);
-  return `https://www.google.com/travel/search?q=${q}&qs=CAEyBAgAEAA&ved=0CAAQ5JsGahcKEwgAEAAYAA&checkin=${checkIn}&checkout=${checkOut}`;
+  return `https://www.google.com/travel/hotels?q=${q}&dates=${checkIn},${checkOut}`;
 }
 
 function propertyToHotel(p: SerpApiHotelProperty, currency: string, checkIn: string, checkOut: string): HotelResult {
