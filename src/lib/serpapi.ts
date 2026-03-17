@@ -15,7 +15,7 @@ interface SerpApiResponse { best_flights: SerpApiFlight[]; other_flights: SerpAp
 export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string): FlightResult[] {
   const all = [...(data.best_flights || []), ...(data.other_flights || [])];
   const googleFlightsUrl = data.search_metadata?.google_flights_url;
-  return all.map((f) => {
+  return all.filter((f) => typeof f.price === "number" && f.price > 0).map((f) => {
     const first = f.flights[0], last = f.flights[f.flights.length - 1];
     const layovers: Layover[] = (f.layovers || []).map((l) => ({ airport: l.id, city: l.name, country: "", duration_minutes: l.duration }));
     const depDate = first.departure_airport.time.split(" ")[0];

@@ -79,9 +79,10 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`,
               maxStops: intent.max_stops,
             });
 
+            const validPrices = flights.map((f) => f.price).filter((p) => typeof p === "number" && !isNaN(p));
             const result: LegSearchResult = {
               leg, flights,
-              cheapest_price: flights.length > 0 ? Math.min(...flights.map((f) => f.price)) : null,
+              cheapest_price: validPrices.length > 0 ? Math.min(...validPrices) : null,
             };
             sendEvent(controller, { type: "leg_result", data: result });
             return result;

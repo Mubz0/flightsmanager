@@ -129,7 +129,7 @@ export function applyFilters(legResults: LegSearchResult[], filters: FilterState
     return {
       ...leg,
       flights: filtered,
-      cheapest_price: filtered.length > 0 ? Math.min(...filtered.map((f) => f.price)) : null,
+      cheapest_price: (() => { const prices = filtered.map((f) => f.price).filter((p) => typeof p === "number" && !isNaN(p)); return prices.length > 0 ? Math.min(...prices) : null; })(),
     };
   });
 }

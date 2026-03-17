@@ -68,6 +68,7 @@ function formatTime(datetime: string): string {
 }
 
 function buildBookingUrl(flight: FlightResult): string {
+  if (flight.google_flights_url) return flight.google_flights_url;
   const date = flight.departure_date || flight.departure_time.split(" ")[0];
-  return `https://www.kiwi.com/en/search/results/${flight.origin}/${flight.destination}/${date}/no-return?sortBy=price`;
+  return `https://www.google.com/travel/flights?q=Flights+from+${flight.origin}+to+${flight.destination}+on+${date}+one+way`;
 }
