@@ -6,6 +6,7 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
+import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 
 const STORAGE_KEY = "flightsmanager-chat";
@@ -124,8 +125,20 @@ export default function Home() {
     setMessages([]);
     clearError();
     localStorage.removeItem(STORAGE_KEY);
-    // Keep profile — it persists across chats
   }, [setMessages, clearError]);
+
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
+  const handleShare = useCallback(() => {
+    const compressed = compressToEncodedURIComponent(JSON.stringify(messages));
+    const url = `${window.location.origin}/shared?data=${compressed}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setShareStatus("copied");
+      setTimeout(() => setShareStatus("idle"), 2000);
+    }).catch(() => {
+      // Fallback: open in new tab
+      window.open(url, "_blank");
+    });
+  }, [messages]);
 
   const hasProfile = Object.values(profile).some((v) =>
     Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined
@@ -140,19 +153,27 @@ export default function Home() {
           <h1 className="text-xl font-bold text-gray-900">FlightsManager</h1>
           <p className="text-xs text-gray-500">AI travel agent</p>
         </div>
-        <div className="w-20 flex justify-end gap-1">
+        <div className="flex justify-end items-center gap-1">
           {hasProfile && (
             <span className="px-2 py-1 text-[10px] text-purple-600 bg-purple-50 rounded-lg" title="Travel profile active">
               Profile
             </span>
           )}
           {messages.length > 0 && (
-            <button
-              onClick={handleNewChat}
-              className="px-3 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              New chat
-            </button>
+            <>
+              <button
+                onClick={handleShare}
+                className="px-3 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                {shareStatus === "copied" ? "Copied!" : "Share"}
+              </button>
+              <button
+                onClick={handleNewChat}
+                className="px-3 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                New
+              </button>
+            </>
           )}
         </div>
       </div>
