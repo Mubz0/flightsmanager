@@ -28,6 +28,7 @@ export interface FlightResult {
   currency: string;
   cabin_class: string;
   co2_emissions_kg?: number;
+  booking_token?: string;
 }
 
 export interface Layover {

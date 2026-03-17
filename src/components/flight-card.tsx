@@ -38,6 +38,16 @@ export function FlightCard({ flight, isCheapest }: FlightCardProps) {
         <div className="text-right">
           <div className="text-2xl font-bold text-gray-900">${flight.price}</div>
           <div className="text-xs text-gray-500">{flight.currency}</div>
+          {flight.booking_token && (
+            <a
+              href={`https://www.google.com/travel/flights/booking?token=${encodeURIComponent(flight.booking_token)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-2 px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Book →
+            </a>
+          )}
         </div>
       </div>
       {flight.layovers.length > 0 && (

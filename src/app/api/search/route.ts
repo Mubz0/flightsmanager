@@ -3,7 +3,7 @@ import { getAzureOpenAI, getDeploymentName } from "@/lib/openai";
 import { FLIGHT_SEARCH_TOOL, parseIntentFromToolCall } from "@/lib/intent-parser";
 import { searchFlights } from "@/lib/serpapi";
 import { filterFlights } from "@/lib/flight-filter";
-import type { LegSearchResult, StreamEvent } from "@/lib/types";
+import type { FlightResult, LegSearchResult, StreamEvent } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -64,13 +64,16 @@ Today's date is ${new Date().toISOString().split("T")[0]}.`,
         const legPromises = intent.legs.map(async (leg) => {
           sendEvent(controller, { type: "status", message: `Searching ${leg.origin} → ${leg.destination} (${leg.date})...` });
 
-          const dates = generateDateRange(leg.date, leg.date_flexibility || 0);
+          const flexibility = Math.min(leg.date_flexibility || 0, 1);
+          const dates = generateDateRange(leg.date, flexibility);
 
           try {
-            const allFlights = await Promise.all(
+            const settled = await Promise.allSettled(
               dates.map((d) => searchFlights(leg.origin, leg.destination, d, serpApiKey, intent.cabin_class))
             );
-            let flights = allFlights.flat();
+            let flights = settled
+              .filter((r): r is PromiseFulfilledResult<FlightResult[]> => r.status === "fulfilled")
+              .flatMap((r) => r.value);
             flights = filterFlights(flights, {
               excludedAirports: intent.excluded_stopover_airports,
               maxStops: intent.max_stops,
