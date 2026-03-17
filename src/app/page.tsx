@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { SearchBar } from "@/components/search-bar";
 import { StreamStatus } from "@/components/stream-status";
 import { FlightResults } from "@/components/flight-results";
+import { FlightFilters, applyFilters, type FilterState } from "@/components/flight-filters";
 import type { LegSearchResult, StreamEvent } from "@/lib/types";
+
+const DEFAULT_FILTERS: FilterState = { maxPrice: null, maxStops: null, airlines: new Set() };
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -12,6 +15,9 @@ export default function Home() {
   const [legResults, setLegResults] = useState<LegSearchResult[]>([]);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+
+  const filteredResults = useMemo(() => applyFilters(legResults, filters), [legResults, filters]);
 
   const handleSearch = useCallback(async (query: string) => {
     setIsLoading(true);
@@ -19,6 +25,7 @@ export default function Home() {
     setLegResults([]);
     setSummary(null);
     setError(null);
+    setFilters(DEFAULT_FILTERS);
 
     try {
       const response = await fetch("/api/search", {
@@ -79,7 +86,8 @@ export default function Home() {
       <div className="max-w-3xl mx-auto mt-8 space-y-6">
         {statusMessage && <StreamStatus message={statusMessage} isActive={isLoading} />}
         {error && <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">{error}</div>}
-        <FlightResults legResults={legResults} summary={summary} />
+        <FlightFilters legResults={legResults} filters={filters} onChange={setFilters} />
+        <FlightResults legResults={filteredResults} summary={summary} />
       </div>
     </main>
   );
