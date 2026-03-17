@@ -30,6 +30,7 @@ export interface FlightResult {
   co2_emissions_kg?: number;
   booking_token?: string;
   departure_date?: string;
+  google_flights_url?: string;
 }
 
 export interface Layover {
