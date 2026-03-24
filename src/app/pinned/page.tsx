@@ -32,7 +32,7 @@ export default function PinnedPage() {
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Flights</div>
             <div className="space-y-2">
               {pinnedFlights.map((f, i) => (
-                <PinnedFlightCard key={`f-${i}`} flight={f} onRemove={() => unpinFlight(i)} />
+                <PinnedFlightCard key={`${f.flight_number}-${f.departure_time}-${f.price}`} flight={f} onRemove={() => unpinFlight(i)} />
               ))}
               {pinnedFlights.length >= 2 && <FlightComparisonSummary flights={pinnedFlights} />}
             </div>
@@ -44,7 +44,7 @@ export default function PinnedPage() {
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Hotels</div>
             <div className="space-y-2">
               {pinnedHotels.map((h, i) => (
-                <PinnedHotelCard key={`h-${i}`} hotel={h} onRemove={() => unpinHotel(i)} />
+                <PinnedHotelCard key={`${h.name}-${h.checkIn}-${h.pricePerNight}`} hotel={h} onRemove={() => unpinHotel(i)} />
               ))}
               {pinnedHotels.length >= 2 && <HotelComparisonSummary hotels={pinnedHotels} />}
             </div>
