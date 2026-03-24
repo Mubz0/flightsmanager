@@ -2,10 +2,10 @@ import { LRUCache } from "lru-cache";
 import type { FlightResult, Layover } from "./types";
 import { expandCityCode } from "./city-codes";
 
-// Cache SerpApi results for 30 minutes, max 200 entries
+// Cache SerpApi results for 5 minutes, max 200 entries
 const flightCache = new LRUCache<string, SearchResult>({
   max: 200,
-  ttl: 30 * 60 * 1000, // 30 minutes
+  ttl: 5 * 60 * 1000, // 5 minutes
 });
 
 interface BuildUrlParams { origin: string; destination: string; date: string; apiKey: string; cabinClass?: string; returnDate?: string; currency?: string; }
@@ -13,7 +13,7 @@ interface BuildUrlParams { origin: string; destination: string; date: string; ap
 export function buildSerpApiUrl(params: BuildUrlParams): string {
   const { origin, destination, date, apiKey, cabinClass, returnDate, currency = "USD" } = params;
   const type = returnDate ? "1" : "2"; // 1 = round-trip, 2 = one-way
-  const sp = new URLSearchParams({ engine: "google_flights", departure_id: origin, arrival_id: destination, outbound_date: date, type, currency, hl: "en", api_key: apiKey });
+  const sp = new URLSearchParams({ engine: "google_flights", departure_id: origin, arrival_id: destination, outbound_date: date, type, currency, hl: "en", show_hidden: "1", api_key: apiKey });
   if (returnDate) sp.set("return_date", returnDate);
   if (cabinClass) { const m: Record<string,string> = { economy: "1", premium_economy: "2", business: "3", first: "4" }; sp.set("travel_class", m[cabinClass] || "1"); }
   return `https://serpapi.com/search?${sp.toString()}`;
@@ -40,7 +40,7 @@ export interface SearchResult { flights: FlightResult[]; priceInsights: PriceIns
 export function normalizeSerpApiResponse(data: SerpApiResponse, currency: string, isRoundTrip = false): FlightResult[] {
   const all = [...(data.best_flights || []), ...(data.other_flights || [])];
   const googleFlightsUrl = data.search_metadata?.google_flights_url;
-  return all.filter((f) => typeof f.price === "number" && f.price > 0).map((f) => {
+  return all.filter((f) => typeof f.price === "number" && f.price > 0).sort((a, b) => a.price - b.price).map((f) => {
     const first = f.flights[0], last = f.flights[f.flights.length - 1];
     const layovers: Layover[] = (f.layovers || []).map((l) => ({ airport: l.id, city: l.name, country: "", duration_minutes: l.duration }));
     const depDate = first.departure_airport.time.split(" ")[0];
