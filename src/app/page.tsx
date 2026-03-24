@@ -6,8 +6,6 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
-import { PinProvider, usePins } from "@/components/pin-context";
-import { PinnedFlightsDrawer } from "@/components/pinned-flights";
 import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 
@@ -163,8 +161,7 @@ export default function Home() {
   );
 
   return (
-    <PinProvider>
-    <main className="flex flex-col h-screen">
+    <main className="flex flex-col h-dvh">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="w-20">
@@ -262,13 +259,6 @@ export default function Home() {
           />
         </div>
       </div>
-      <PinnedDrawerWrapper />
     </main>
-    </PinProvider>
   );
-}
-
-function PinnedDrawerWrapper() {
-  const { pinnedFlights, pinnedHotels, unpinFlight, unpinHotel, clear, totalPinned } = usePins();
-  return <PinnedFlightsDrawer flights={pinnedFlights} hotels={pinnedHotels} onRemoveFlight={unpinFlight} onRemoveHotel={unpinHotel} onClear={clear} totalPinned={totalPinned} />;
 }

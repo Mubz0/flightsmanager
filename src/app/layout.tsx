@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ClientProviders } from "@/components/client-providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,7 +44,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-white dark:bg-[#0a0a0a] min-h-screen`}>{children}</body>
+      <body className={`${inter.className} bg-white dark:bg-[#0a0a0a]`}>
+        <ClientProviders>{children}</ClientProviders>
+      </body>
     </html>
   );
 }
