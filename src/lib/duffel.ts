@@ -41,21 +41,31 @@ export async function searchFlightsDuffel(
 
   const cabin = CABIN_CLASS_MAP[cabinClass || "economy"] || "economy";
 
-  const offerRequest = await duffel.offerRequests.create({
+  const TIMEOUT_MS = 12000; // 12 second timeout — fall back to SerpAPI if Duffel is slow
+
+  const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error("Duffel timeout")), TIMEOUT_MS)
+      ),
+    ]);
+
+  const offerRequest = await withTimeout(duffel.offerRequests.create({
     slices,
     passengers: [{ type: "adult" }],
     cabin_class: cabin,
     return_offers: false,
-  });
+  }));
 
   const requestId = offerRequest.data.id;
 
   // Fetch offers for this request
-  const offersResponse = await duffel.offers.list({
+  const offersResponse = await withTimeout(duffel.offers.list({
     offer_request_id: requestId,
     sort: "total_amount",
     max_connections: 2,
-  });
+  }));
 
   const isRoundTrip = !!returnDate;
   const results: FlightResult[] = [];
