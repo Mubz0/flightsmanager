@@ -15,6 +15,7 @@
     "@ai-sdk/azure": "^3.0.42",
     "@ai-sdk/react": "^3.0.118",
     "@ducanh2912/next-pwa": "^10.2.9",
+    "@duffel/api": "^4.21.6",
     "ai": "^6.0.116",
     "fuse.js": "^7.1.0",
     "lru-cache": "^11.2.7",

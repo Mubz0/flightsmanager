@@ -2,6 +2,7 @@ import { z } from "zod";
 import { tool } from "ai";
 import { searchFlights } from "./serpapi";
 import type { PriceInsights } from "./serpapi";
+import { searchFlightsDuffel } from "./duffel";
 import { searchHotels } from "./serpapi-hotels";
 import { filterFlights } from "./flight-filter";
 import { resolveAirports } from "./airports";
@@ -46,7 +47,24 @@ export const searchFlightsTool = tool({
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) return { status: "error", message: "SerpApi key not configured." };
     try {
-      const { flights: allFlights, priceInsights } = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate, currency);
+      // Try Duffel first (accurate GDS data); fall back to SerpAPI
+      let allFlights: FlightResult[] = [];
+      let priceInsights: PriceInsights | null = null;
+
+      if (process.env.DUFFEL_API_KEY) {
+        try {
+          allFlights = await searchFlightsDuffel(origin, destination, date, cabinClass, returnDate, currency);
+        } catch {
+          // Duffel failed — fall through to SerpAPI
+        }
+      }
+
+      if (allFlights.length === 0) {
+        const serpResult = await searchFlights(origin, destination, date, apiKey, cabinClass, returnDate, currency);
+        allFlights = serpResult.flights;
+        priceInsights = serpResult.priceInsights;
+      }
+
       let flights = allFlights;
       if (maxStops !== undefined) {
         flights = filterFlights(flights, { maxStops });
