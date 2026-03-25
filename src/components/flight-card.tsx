@@ -68,7 +68,7 @@ export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardPr
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
             {flight.layovers.map((l, i) => (
-              <span key={i}>{l.airport}: {Math.floor(l.duration_minutes / 60)}h {l.duration_minutes % 60}m layover</span>
+              <span key={i}>{l.airport}{l.duration_minutes > 0 ? `: ${Math.floor(l.duration_minutes / 60)}h ${l.duration_minutes % 60}m layover` : " layover"}</span>
             ))}
           </div>
         </div>
