@@ -8,6 +8,8 @@ import { SkeletonCard } from "./skeleton-card";
 import { usePins } from "./pin-context";
 import type { FlightResult } from "@/lib/types";
 import type { HotelResult } from "@/lib/types-hotels";
+import { FlightFilters, applyFilters } from "./flight-filters";
+import type { FilterState } from "./flight-filters";
 
 // Simple markdown-to-JSX: bold, links, and line breaks
 function renderMarkdown(text: string) {
@@ -116,6 +118,19 @@ export function ChatMessage({ message }: ChatMessageProps) {
   );
 }
 
+type SortBy = "price" | "duration" | "departure";
+
+function sortFlights(flights: FlightResult[], sortBy: SortBy): FlightResult[] {
+  return [...flights].sort((a, b) => {
+    if (sortBy === "price") return a.price - b.price;
+    if (sortBy === "duration") return a.duration_minutes - b.duration_minutes;
+    // departure: sort by departure_time string (HH:MM), fallback to 0
+    const ta = a.departure_time || "";
+    const tb = b.departure_time || "";
+    return ta.localeCompare(tb);
+  });
+}
+
 function ToolInvocationView({
   toolName,
   input,
@@ -128,6 +143,12 @@ function ToolInvocationView({
   isDone: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    maxPrice: null,
+    maxStops: null,
+    airlines: new Set<string>(),
+  });
+  const [sortBy, setSortBy] = useState<SortBy>("price");
   const { pinFlight, isFlightPinned, pinHotel, isHotelPinned } = usePins();
 
   const label =
@@ -158,7 +179,25 @@ function ToolInvocationView({
     if (Array.isArray(output)) {
       const priceInsightsEntry = output.find((item: any) => item._price_insights);
       const priceInsights = priceInsightsEntry?._price_insights;
-      const flights = output.filter((item: any) => !item._price_insights).map(toFlightResult);
+      const allFlights = output.filter((item: any) => !item._price_insights).map(toFlightResult);
+
+      // Wrap into a LegSearchResult so applyFilters() can consume it
+      const legResult = {
+        leg: { origin: input?.origin || "", destination: input?.destination || "", date: input?.date || "" },
+        flights: allFlights,
+        cheapest_price: allFlights.length > 0 ? Math.min(...allFlights.map((f) => f.price)) : null,
+      };
+
+      const [filteredLeg] = applyFilters([legResult], filters);
+      const displayFlights = sortFlights(filteredLeg?.flights ?? [], sortBy).slice(0, 5);
+      const cheapestPrice = displayFlights.length > 0 ? Math.min(...displayFlights.map((f) => f.price)) : null;
+
+      const SORT_OPTIONS: { label: string; value: SortBy }[] = [
+        { label: "Price", value: "price" },
+        { label: "Duration", value: "duration" },
+        { label: "Departure", value: "departure" },
+      ];
+
       return (
         <div className="space-y-2">
           <ThinkingStepHeader
@@ -168,12 +207,39 @@ function ToolInvocationView({
             onToggle={() => setExpanded(!expanded)}
           />
           {expanded && (
-            <div className="pl-4 text-xs text-gray-400">Found {flights.length} flights</div>
+            <div className="pl-4 text-xs text-gray-400">Found {allFlights.length} flights</div>
           )}
           {priceInsights && <PriceInsightsBadge insights={priceInsights} />}
+          {allFlights.length >= 3 && (
+            <FlightFilters legResults={[legResult]} filters={filters} onChange={setFilters} />
+          )}
+          {allFlights.length >= 3 && (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 mr-1">Sort:</span>
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSortBy(opt.value)}
+                  className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                    sortBy === opt.value
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="space-y-2">
-            {flights.slice(0, 5).map((flight, j) => (
-              <FlightCard key={j} flight={flight} isCheapest={j === 0} onPin={pinFlight} isPinned={isFlightPinned(flight)} />
+            {displayFlights.map((flight, j) => (
+              <FlightCard
+                key={j}
+                flight={flight}
+                isCheapest={flight.price === cheapestPrice}
+                onPin={pinFlight}
+                isPinned={isFlightPinned(flight)}
+              />
             ))}
           </div>
           <FreshnessLabel />

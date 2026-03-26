@@ -34,11 +34,11 @@ export function FlightFilters({ legResults, filters, onChange }: FlightFiltersPr
   const currentMax = filters.maxPrice ?? priceRange.max;
 
   return (
-    <div className="p-4 rounded-lg border border-gray-200 bg-white space-y-4">
-      <h3 className="text-sm font-semibold text-gray-700">Filters</h3>
+    <div className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-3">
+      <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-300">Filters</h3>
 
       <div>
-        <label className="text-xs text-gray-500">Max price: ${currentMax}</label>
+        <label className="text-xs text-gray-500 dark:text-gray-400">Max price: ${currentMax}</label>
         <input
           type="range"
           min={priceRange.min}
@@ -48,16 +48,16 @@ export function FlightFilters({ legResults, filters, onChange }: FlightFiltersPr
             const val = Number(e.target.value);
             onChange({ ...filters, maxPrice: val >= priceRange.max ? null : val });
           }}
-          className="w-full mt-1"
+          className="w-full mt-1 accent-blue-600"
         />
-        <div className="flex justify-between text-xs text-gray-400">
+        <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
           <span>${priceRange.min}</span>
           <span>${priceRange.max}</span>
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-gray-500">Max stops</label>
+        <label className="text-xs text-gray-500 dark:text-gray-400">Max stops</label>
         <div className="flex gap-2 mt-1">
           {[
             { label: "Any", value: null },
@@ -67,10 +67,10 @@ export function FlightFilters({ legResults, filters, onChange }: FlightFiltersPr
             <button
               key={opt.label}
               onClick={() => onChange({ ...filters, maxStops: opt.value })}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+              className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                 filters.maxStops === opt.value
                   ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
+                  : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
               }`}
             >
               {opt.label}
@@ -81,7 +81,7 @@ export function FlightFilters({ legResults, filters, onChange }: FlightFiltersPr
 
       {allAirlines.length > 1 && (
         <div>
-          <label className="text-xs text-gray-500">Airlines</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400">Airlines</label>
           <div className="flex flex-wrap gap-2 mt-1">
             {allAirlines.map((airline) => {
               const active = filters.airlines.size === 0 || filters.airlines.has(airline);
@@ -101,10 +101,10 @@ export function FlightFilters({ legResults, filters, onChange }: FlightFiltersPr
                     }
                     onChange({ ...filters, airlines: next });
                   }}
-                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                     active
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-400 border-gray-300 line-through"
+                      : "bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-300 dark:border-gray-600 line-through"
                   }`}
                 >
                   {airline}

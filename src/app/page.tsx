@@ -299,8 +299,47 @@ export default function Home() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <p className="text-gray-400 dark:text-gray-500 mb-6">Try one of these:</p>
+            <div className="flex flex-col items-center px-4 py-10 max-w-md mx-auto w-full">
+              {/* App name + tagline */}
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                FlightsManager
+              </h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Search real flights in plain English
+              </p>
+
+              {/* Capability cards */}
+              <div className="mt-8 w-full grid grid-cols-2 gap-3">
+                {[
+                  {
+                    title: "Search flights",
+                    desc: "Ask naturally, get real prices from live data",
+                  },
+                  {
+                    title: "Flexible dates",
+                    desc: "Find the cheapest day or week to fly",
+                  },
+                  {
+                    title: "Explore destinations",
+                    desc: "Give me a budget — I'll find somewhere great",
+                  },
+                  {
+                    title: "Round trips",
+                    desc: "Search outbound and return in one message",
+                  },
+                ].map(({ title, desc }) => (
+                  <div
+                    key={title}
+                    className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-4 py-3"
+                  >
+                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{title}</p>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 leading-snug">{desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Example prompt chips */}
+              <p className="mt-8 text-xs text-gray-400 dark:text-gray-500 mb-3">Try an example:</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {EXAMPLE_PROMPTS.map((prompt, i) => (
                   <button
