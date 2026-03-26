@@ -36,8 +36,9 @@ function saveHistory(history: ChatSession[]) {
 }
 
 const EXAMPLE_PROMPTS = [
-  "Cheapest flight from Bangkok to London on March 23",
-  "Round trip SFO to Tokyo, Mar 28 returning Apr 5",
+  "Cheapest flight from Bangkok to London on April 15",
+  "Round trip SFO to Tokyo, Apr 28 returning May 5",
+  "Multi-city: LHR to BKK on May 1, BKK to SYD on May 8, SYD to LHR on May 15",
   "I have $800 and a week off — somewhere warm from JFK",
 ];
 

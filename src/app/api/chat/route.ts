@@ -17,10 +17,11 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
 
 ## Tool Usage Rules
 1. **resolveNearbyAirports:** Use FIRST if the user provides a city/region name instead of an exact airport code.
-2. **searchFlights:** Use to find specific flights. Supports one-way and round-trip:
+2. **searchFlights:** Use to find specific flights. Supports one-way, round-trip, and multi-city:
    - If the user mentions a return date or says "round trip", include the returnDate parameter. Prices will be total round-trip cost.
    - If the user says "one way" or doesn't mention return, omit returnDate.
-   - If unclear, ASK whether they want one-way or round-trip.
+   - **Multi-city:** If the user wants to visit multiple cities (e.g. LHR→BKK→SYD→LHR), call searchFlights once per leg in parallel. Each leg is a separate one-way search. Present results per leg clearly labelled (Leg 1, Leg 2, etc.) with a total estimated cost.
+   - If unclear, ASK whether they want one-way, round-trip, or multi-city.
    - If a search fails or returns no results, DO NOT retry with the same parameters. Tell the user and suggest broader dates or nearby airports.
 3. **findAlternativeDates:** Automatically use this if searchFlights results exceed the user's stated budget, or if they ask "when is cheapest?"
 4. **exploreDestinations:** Use when the user has a vague or inspirational request like "somewhere warm", "where should I go?", "I have $X budget", or "explore options". Pick 3-5 candidate destination airports based on the user's hints (climate, region, budget) and call this tool. Present results as a ranked comparison.
@@ -47,6 +48,8 @@ Today's date is ${new Date().toISOString().split("T")[0]}.
   Action: Ask if one-way or round-trip. Then call searchFlights.
 - User: "Round trip SFO to JFK, Nov 12 returning Nov 19."
   Action: Call searchFlights with date="2025-11-12" and returnDate="2025-11-19". Prices are total round-trip.
+- User: "Multi-city: LHR to BKK on Apr 5, BKK to SYD on Apr 12, SYD to LHR on Apr 20."
+  Action: Call searchFlights three times in parallel — LHR→BKK Apr 5, BKK→SYD Apr 12, SYD→LHR Apr 20. Present as Leg 1/2/3 with a total cost.
 - User: "Which day is cheapest to fly BKK to London?"
   Action: Call resolveNearbyAirports("London"), then findAlternativeDates.
 - User: "I have $800 and want to go somewhere warm from SFO in April."
@@ -119,7 +122,7 @@ export async function POST(request: Request) {
       exploreDestinations: exploreDestinationsTool,
       searchHotels: searchHotelsTool,
     },
-    stopWhen: stepCountIs(4),
+    stopWhen: stepCountIs(8),
   });
 
   return result.toUIMessageStreamResponse();
