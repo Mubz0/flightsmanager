@@ -11,6 +11,28 @@ import type { TravelProfile } from "@/lib/travel-profile";
 
 const STORAGE_KEY = "flightsmanager-chat";
 const PROFILE_KEY = "flightsmanager-profile";
+const HISTORY_KEY = "flightsmanager-history";
+
+interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: number;
+  messages: UIMessage[];
+}
+
+function loadHistory(): ChatSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveHistory(history: ChatSession[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 50)));
+  } catch { /* quota exceeded */ }
+}
 
 const EXAMPLE_PROMPTS = [
   "Cheapest flight from Bangkok to London on March 23",
@@ -138,10 +160,44 @@ export default function Home() {
   }, []);
 
   const handleNewChat = useCallback(() => {
+    if (messages.length > 0) {
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      const title = firstUserMsg
+        ? (firstUserMsg.parts?.find((p) => p.type === "text")?.text ?? "Chat").slice(0, 60)
+        : "Chat";
+      const session: ChatSession = {
+        id: Date.now().toString(),
+        title,
+        timestamp: Date.now(),
+        messages,
+      };
+      const updated = [session, ...loadHistory()];
+      saveHistory(updated);
+      setHistory(updated);
+    }
     setMessages([]);
     clearError();
     localStorage.removeItem(STORAGE_KEY);
-  }, [setMessages, clearError]);
+  }, [messages, setMessages, clearError]);
+
+  const handleLoadSession = useCallback((session: ChatSession) => {
+    setMessages(session.messages);
+    saveMessages(session.messages);
+    setShowHistory(false);
+  }, [setMessages]);
+
+  const handleDeleteSession = useCallback((id: string) => {
+    const updated = loadHistory().filter((s) => s.id !== id);
+    saveHistory(updated);
+    setHistory(updated);
+  }, []);
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<ChatSession[]>([]);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const handleShare = useCallback(() => {
@@ -161,7 +217,7 @@ export default function Home() {
   );
 
   return (
-    <main className="flex flex-col h-dvh">
+    <main className="flex flex-col h-dvh relative">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="w-20">
@@ -188,6 +244,14 @@ export default function Home() {
               Profile
             </span>
           )}
+          {history.length > 0 && (
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="px-3 py-1.5 text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              History
+            </button>
+          )}
           {messages.length > 0 && (
             <>
               <button
@@ -206,6 +270,29 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* History panel */}
+      {showHistory && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-white dark:bg-gray-900">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Chat History</h2>
+            <button onClick={() => setShowHistory(false)} className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">Close</button>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+            {history.length === 0 ? (
+              <p className="p-6 text-sm text-gray-400 text-center">No past chats</p>
+            ) : history.map((session) => (
+              <div key={session.id} className="flex items-center gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 group">
+                <button onClick={() => handleLoadSession(session)} className="flex-1 text-left">
+                  <p className="text-sm text-gray-800 dark:text-gray-200 truncate">{session.title}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{new Date(session.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                </button>
+                <button onClick={() => handleDeleteSession(session.id)} className="text-xs text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 sm:py-6">
