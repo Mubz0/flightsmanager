@@ -6,6 +6,7 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
+import { InstallPrompt } from "@/components/install-prompt";
 import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 
@@ -335,6 +336,8 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <InstallPrompt />
 
       {/* Input */}
       <div className="border-t border-gray-200 dark:border-gray-700 px-2 sm:px-4 py-3">
