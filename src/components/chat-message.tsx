@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { FlightCard } from "./flight-card";
 import { HotelCard } from "./hotel-card";
@@ -176,6 +176,7 @@ function ToolInvocationView({
               <FlightCard key={j} flight={flight} isCheapest={j === 0} onPin={pinFlight} isPinned={isFlightPinned(flight)} />
             ))}
           </div>
+          <FreshnessLabel />
         </div>
       );
     }
@@ -292,6 +293,23 @@ function ThinkingStepHeader({
       <span>{label}</span>
       {isDone && <span className="text-gray-300">{expanded ? "▲" : "▼"}</span>}
     </button>
+  );
+}
+
+function FreshnessLabel() {
+  const fetchedAt = useRef(Date.now());
+  const [, setTick] = useState(0);
+
+  // Re-render every minute to keep label current
+  useRef((() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60_000);
+    return interval;
+  })());
+
+  const mins = Math.floor((Date.now() - fetchedAt.current) / 60_000);
+  const label = mins === 0 ? "just now" : `${mins} min${mins === 1 ? "" : "s"} ago`;
+  return (
+    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Prices fetched {label}</p>
   );
 }
 
