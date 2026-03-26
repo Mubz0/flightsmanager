@@ -7,6 +7,7 @@ import type { UIMessage } from "@ai-sdk/react";
 import { ChatMessage } from "@/components/chat-message";
 import { ChatInput } from "@/components/chat-input";
 import { InstallPrompt } from "@/components/install-prompt";
+import { PriceAlerts } from "@/components/price-alerts";
 import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 
@@ -378,6 +379,7 @@ export default function Home() {
       </div>
 
       <InstallPrompt />
+      <PriceAlerts />
 
       {/* Input */}
       <div className="border-t border-gray-200 dark:border-gray-700 px-2 sm:px-4 py-3">

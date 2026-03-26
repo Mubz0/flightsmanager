@@ -1,4 +1,24 @@
+"use client";
+
+import { useState } from "react";
 import type { FlightResult } from "@/lib/types";
+import type { PriceAlert } from "@/components/price-alerts";
+
+const ALERTS_KEY = "flight-price-alerts";
+
+function loadAlerts(): PriceAlert[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ALERTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveAlerts(alerts: PriceAlert[]) {
+  try {
+    localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
+  } catch { /* quota exceeded */ }
+}
 
 interface FlightCardProps {
   flight: FlightResult;
@@ -10,6 +30,33 @@ interface FlightCardProps {
 export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardProps) {
   const hours = Math.floor(flight.duration_minutes / 60);
   const mins = flight.duration_minutes % 60;
+
+  // Price alert state
+  const defaultTarget = Math.floor(flight.price * 0.9);
+  const [showAlertForm, setShowAlertForm] = useState(false);
+  const [targetPrice, setTargetPrice] = useState(String(defaultTarget));
+  const [alertSaved, setAlertSaved] = useState(false);
+
+  function handleSaveAlert() {
+    const price = Number(targetPrice);
+    if (isNaN(price) || price <= 0) return;
+    const alert: PriceAlert = {
+      id: `${flight.origin}-${flight.destination}-${flight.departure_date ?? ""}-${Date.now()}`,
+      origin: flight.origin,
+      destination: flight.destination,
+      date: flight.departure_date ?? flight.departure_time.split(" ")[0],
+      targetPrice: price,
+      currency: flight.currency,
+      createdAt: Date.now(),
+    };
+    const existing = loadAlerts().filter(
+      (a) => !(a.origin === alert.origin && a.destination === alert.destination && a.date === alert.date)
+    );
+    saveAlerts([alert, ...existing]);
+    setShowAlertForm(false);
+    setAlertSaved(true);
+    setTimeout(() => setAlertSaved(false), 3000);
+  }
 
   return (
     <div className={`relative p-4 rounded-lg border ${isCheapest ? "border-green-500 bg-green-50 dark:bg-green-950" : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"} hover:shadow-md transition-shadow`}>
@@ -53,6 +100,13 @@ export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardPr
                 {isPinned ? "Pinned" : "Pin"}
               </button>
             )}
+            <button
+              onClick={() => { setShowAlertForm((v) => !v); setTargetPrice(String(defaultTarget)); }}
+              className={`px-2 py-1.5 text-xs rounded-lg transition-colors ${alertSaved ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-gray-100 text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:bg-gray-800 dark:text-gray-400"}`}
+              title="Set a price alert"
+            >
+              {alertSaved ? "Alert set!" : "Alert"}
+            </button>
             <a
               href={buildBookingUrl(flight)}
               target="_blank"
@@ -71,6 +125,38 @@ export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardPr
               <span key={i}>{l.airport}{l.duration_minutes > 0 ? `: ${Math.floor(l.duration_minutes / 60)}h ${l.duration_minutes % 60}m layover` : " layover"}</span>
             ))}
           </div>
+        </div>
+      )}
+
+      {showAlertForm && (
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Notify me when {flight.origin} &rarr; {flight.destination} drops to or below:
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400">{flight.currency}</span>
+            <input
+              type="number"
+              value={targetPrice}
+              onChange={(e) => setTargetPrice(e.target.value)}
+              min={1}
+              className="w-28 px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              placeholder="Target price"
+            />
+            <button
+              onClick={handleSaveAlert}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              Save alert
+            </button>
+            <button
+              onClick={() => setShowAlertForm(false)}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">Pre-filled at 10% below current price. We&rsquo;ll check every 10 min while the app is open.</p>
         </div>
       )}
     </div>

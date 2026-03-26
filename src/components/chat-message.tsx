@@ -318,6 +318,84 @@ function ToolInvocationView({
     }
   }
 
+  // findAlternativeDates: show a bar chart calendar strip
+  if (toolName === "findAlternativeDates") {
+    if (!isDone) {
+      return (
+        <div>
+          <ThinkingStepHeader label={label} isDone={false} expanded={false} onToggle={() => {}} />
+        </div>
+      );
+    }
+    if (output && typeof output === "object" && !Array.isArray(output)) {
+      const entries = Object.entries(output as Record<string, number>)
+        .filter(([, v]) => typeof v === "number" && v > 0)
+        .sort(([a], [b]) => a.localeCompare(b));
+
+      if (entries.length > 0) {
+        const prices = entries.map(([, v]) => v);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        const priceRange = maxPrice - minPrice || 1;
+        const cheapestDate = entries.find(([, v]) => v === minPrice)![0];
+
+        const formatDate = (iso: string) => {
+          const [y, m, d] = iso.split("-").map(Number);
+          const dt = new Date(y, m - 1, d);
+          return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        };
+
+        const cheapestLabel = formatDate(cheapestDate);
+
+        return (
+          <div className="space-y-2">
+            <ThinkingStepHeader label={label} isDone expanded={expanded} onToggle={() => setExpanded(!expanded)} />
+            {/* Cheapest callout */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700">
+              <span className="font-semibold">Cheapest:</span>
+              <span>{cheapestLabel} — ${minPrice}</span>
+            </div>
+            {/* Bar chart strip */}
+            <div className="overflow-x-auto pb-1">
+              <div className="flex items-end gap-1.5" style={{ minWidth: `${entries.length * 52}px`, height: "120px" }}>
+                {entries.map(([date, price]) => {
+                  const isCheapest = price === minPrice;
+                  const isMostExpensive = price === maxPrice && minPrice !== maxPrice;
+                  const heightPct = 20 + Math.round(((price - minPrice) / priceRange) * 75);
+                  const barColor = isCheapest
+                    ? "bg-green-500 dark:bg-green-400"
+                    : isMostExpensive
+                      ? "bg-red-400 dark:bg-red-500"
+                      : "bg-blue-300 dark:bg-blue-600";
+                  return (
+                    <div key={date} className="flex flex-col items-center gap-0.5" style={{ width: "48px", flexShrink: 0 }}>
+                      {/* Price label above bar */}
+                      <span className="text-[9px] leading-none text-gray-500 dark:text-gray-400 font-medium">${price}</span>
+                      {/* Bar */}
+                      <div className="w-full relative flex flex-col justify-end" style={{ height: "72px" }}>
+                        <div
+                          className={`w-full rounded-t transition-all ${barColor}`}
+                          style={{ height: `${heightPct}%` }}
+                        />
+                        {isCheapest && (
+                          <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] bg-green-500 dark:bg-green-400 text-white px-1 py-px rounded whitespace-nowrap font-semibold">
+                            best
+                          </span>
+                        )}
+                      </div>
+                      {/* Date label below bar */}
+                      <span className="text-[9px] leading-none text-gray-500 dark:text-gray-400 text-center">{formatDate(date)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
+  }
+
   // For other tools or pending state
   return (
     <div>
