@@ -197,6 +197,13 @@ export default function Home() {
 
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
+
+  const filteredHistory = useMemo(() => {
+    if (!historySearch.trim()) return history;
+    const q = historySearch.toLowerCase();
+    return history.filter((s) => s.title.toLowerCase().includes(q));
+  }, [history, historySearch]);
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -279,12 +286,34 @@ export default function Home() {
         <div className="absolute inset-0 z-50 flex flex-col bg-white dark:bg-gray-900">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Chat History</h2>
-            <button onClick={() => setShowHistory(false)} className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">Close</button>
+            <button onClick={() => { setShowHistory(false); setHistorySearch(""); }} className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">Close</button>
+          </div>
+          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search history..."
+                className="w-full text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg px-3 py-1.5 pr-7 outline-none focus:ring-2 focus:ring-blue-400 dark:focus:ring-blue-600"
+              />
+              {historySearch && (
+                <button
+                  onClick={() => setHistorySearch("")}
+                  className="absolute right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-base leading-none"
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
             {history.length === 0 ? (
               <p className="p-6 text-sm text-gray-400 text-center">No past chats</p>
-            ) : history.map((session) => (
+            ) : filteredHistory.length === 0 ? (
+              <p className="p-6 text-sm text-gray-400 text-center">No matches</p>
+            ) : filteredHistory.map((session) => (
               <div key={session.id} className="flex items-center gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 group">
                 <button onClick={() => handleLoadSession(session)} className="flex-1 text-left">
                   <p className="text-sm text-gray-800 dark:text-gray-200 truncate">{session.title}</p>

@@ -25,9 +25,10 @@ interface FlightCardProps {
   isCheapest?: boolean;
   onPin?: (flight: FlightResult) => void;
   isPinned?: boolean;
+  co2Context?: { min: number; max: number };
 }
 
-export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardProps) {
+export function FlightCard({ flight, isCheapest, onPin, isPinned, co2Context }: FlightCardProps) {
   const hours = Math.floor(flight.duration_minutes / 60);
   const mins = flight.duration_minutes % 60;
 
@@ -125,6 +126,41 @@ export function FlightCard({ flight, isCheapest, onPin, isPinned }: FlightCardPr
               <span key={i}>{l.airport}{l.duration_minutes > 0 ? `: ${Math.floor(l.duration_minutes / 60)}h ${l.duration_minutes % 60}m layover` : " layover"}</span>
             ))}
           </div>
+        </div>
+      )}
+
+      {flight.co2_emissions_kg != null && (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px]">
+          {(() => {
+            const kg = Math.round(flight.co2_emissions_kg!);
+            const base = `~${kg} kg CO₂`;
+            if (!co2Context || co2Context.min === co2Context.max) {
+              return <span className="text-gray-400 dark:text-gray-500">{base}</span>;
+            }
+            if (flight.co2_emissions_kg === co2Context.min) {
+              return (
+                <>
+                  <span className="text-gray-400 dark:text-gray-500">{base}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 font-medium">Lowest CO₂</span>
+                </>
+              );
+            }
+            if (flight.co2_emissions_kg === co2Context.max) {
+              return (
+                <>
+                  <span className="text-gray-400 dark:text-gray-500">{base}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-medium">Highest CO₂</span>
+                </>
+              );
+            }
+            const pct = Math.round(((flight.co2_emissions_kg! - co2Context.min) / co2Context.min) * 100);
+            return (
+              <>
+                <span className="text-gray-400 dark:text-gray-500">{base}</span>
+                <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">+{pct}%</span>
+              </>
+            );
+          })()}
         </div>
       )}
 

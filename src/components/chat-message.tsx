@@ -192,6 +192,11 @@ function ToolInvocationView({
       const displayFlights = sortFlights(filteredLeg?.flights ?? [], sortBy).slice(0, 5);
       const cheapestPrice = displayFlights.length > 0 ? Math.min(...displayFlights.map((f) => f.price)) : null;
 
+      const co2Values = displayFlights.map((f) => f.co2_emissions_kg).filter((v): v is number => v != null);
+      const co2Context = co2Values.length >= 2
+        ? { min: Math.min(...co2Values), max: Math.max(...co2Values) }
+        : undefined;
+
       const SORT_OPTIONS: { label: string; value: SortBy }[] = [
         { label: "Price", value: "price" },
         { label: "Duration", value: "duration" },
@@ -239,6 +244,7 @@ function ToolInvocationView({
                 isCheapest={flight.price === cheapestPrice}
                 onPin={pinFlight}
                 isPinned={isFlightPinned(flight)}
+                co2Context={co2Context}
               />
             ))}
           </div>
