@@ -82,7 +82,7 @@ export function FlightCard({ flight, isCheapest, onPin, isPinned, co2Context }: 
             {flight.departure_date && <span className="ml-1 text-gray-400">{formatDate(flight.departure_date)}</span>}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {hours}h{mins > 0 ? ` ${mins}m` : ""} &middot; {flight.stops === 0 ? "Non-stop" : `${flight.stops} stop${flight.stops > 1 ? "s" : ""}`}
+            {flight.duration_minutes > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ""} · ` : ""}{flight.stops === 0 ? "Non-stop" : `${flight.stops} stop${flight.stops > 1 ? "s" : ""}`}
             {flight.layovers.length > 0 && ` (${flight.layovers.map((l) => l.airport).join(", ")})`}
           </div>
         </div>
@@ -200,7 +200,8 @@ export function FlightCard({ flight, isCheapest, onPin, isPinned, co2Context }: 
 }
 
 function formatTime(datetime: string): string {
-  const timePart = datetime.split(" ")[1];
+  // Handle both "2026-04-15 10:50:00" and "2026-04-15T10:50:00"
+  const timePart = datetime.split(/[ T]/)[1];
   if (!timePart) return datetime;
   return timePart.slice(0, 5);
 }
