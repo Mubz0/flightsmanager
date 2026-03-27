@@ -32,7 +32,7 @@ interface ChatSession {
 const EXAMPLE_PROMPTS = [
   "Cheapest flight from Bangkok to London on April 15",
   "Round trip SFO to Tokyo, Apr 28 returning May 5",
-  "Multi-city: LHR to BKK on May 1, BKK to SYD on May 8, SYD to LHR on May 15",
+  "Hotel in Paris for 3 nights from May 10, under $150/night",
   "I have $800 and a week off — somewhere warm from JFK",
 ];
 
@@ -336,16 +336,16 @@ export default function Home() {
                     desc: "Ask naturally, get real prices from live data",
                   },
                   {
-                    title: "Flexible dates",
-                    desc: "Find the cheapest day or week to fly",
+                    title: "Find hotels",
+                    desc: "Search by city, dates, budget, or star rating",
                   },
                   {
                     title: "Explore destinations",
                     desc: "Give me a budget — I'll find somewhere great",
                   },
                   {
-                    title: "Round trips",
-                    desc: "Search outbound and return in one message",
+                    title: "Plan a trip",
+                    desc: "Flights and hotels together in one conversation",
                   },
                 ].map(({ title, desc }) => (
                   <div
