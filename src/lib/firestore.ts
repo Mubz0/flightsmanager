@@ -125,32 +125,31 @@ export async function fsSaveSession(
   messages: UIMessage[]
 ): Promise<void> {
   try {
-    const batch = writeBatch(db);
-
-    // Session metadata
-    batch.set(doc(db, "users", uid, "sessions", meta.id), {
+    // Write session metadata
+    const metaBatch = writeBatch(db);
+    metaBatch.set(doc(db, "users", uid, "sessions", meta.id), {
       title: meta.title,
       createdAt: meta.createdAt,
       updatedAt: meta.updatedAt,
     });
+    await metaBatch.commit();
 
-    // Messages — deterministic IDs (message.id) so writes are idempotent
+    // Write messages in chunks of 490 (each gets its own fresh batch)
     const BATCH_LIMIT = 490;
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      const content =
-        msg.parts?.find((p) => p.type === "text")?.text ??
-        (typeof (msg as any).content === "string" ? (msg as any).content : "");
-      batch.set(
-        doc(db, "users", uid, "sessions", meta.id, "messages", msg.id),
-        { id: msg.id, role: msg.role, content, createdAt: meta.createdAt + i } satisfies StoredMessage
-      );
-      if ((i + 1) % BATCH_LIMIT === 0) {
-        await batch.commit();
-      }
+    for (let i = 0; i < messages.length; i += BATCH_LIMIT) {
+      const chunk = messages.slice(i, i + BATCH_LIMIT);
+      const msgBatch = writeBatch(db);
+      chunk.forEach((msg, j) => {
+        const content =
+          msg.parts?.find((p) => p.type === "text")?.text ??
+          (typeof (msg as any).content === "string" ? (msg as any).content : "");
+        msgBatch.set(
+          doc(db, "users", uid, "sessions", meta.id, "messages", msg.id),
+          { id: msg.id, role: msg.role, content, createdAt: meta.createdAt + i + j } satisfies StoredMessage
+        );
+      });
+      await msgBatch.commit();
     }
-
-    await batch.commit();
   } catch (e) {
     console.error("[TripPilot] fsSaveSession", e);
   }
