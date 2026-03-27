@@ -16,27 +16,27 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://app-flightsmanager.azurewebsites.net"),
-  title: "FlightsManager — AI Travel Agent",
-  description: "Find the cheapest flights with a conversational AI travel agent. Compare prices, explore destinations, and get personalized recommendations.",
-  keywords: ["flights", "cheap flights", "AI travel agent", "flight search", "travel", "flight comparison"],
-  authors: [{ name: "FlightsManager" }],
+  title: "TripPilot — Your AI travel agent",
+  description: "Plan flights and hotels with a conversational AI travel agent. Compare prices, explore destinations, and get personalised recommendations.",
+  keywords: ["flights", "cheap flights", "AI travel agent", "flight search", "travel", "flight comparison", "hotels", "accommodation"],
+  authors: [{ name: "TripPilot" }],
   openGraph: {
-    title: "FlightsManager — AI Travel Agent",
+    title: "TripPilot — Your AI travel agent",
     description: "Ask in plain English. Get the cheapest flights. Compare destinations. Your AI-powered travel agent.",
     type: "website",
-    siteName: "FlightsManager",
+    siteName: "TripPilot",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "FlightsManager — AI Travel Agent",
+    title: "TripPilot — Your AI travel agent",
     description: "Ask in plain English. Get the cheapest flights. Compare destinations.",
   },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "FlightsManager",
+    title: "TripPilot",
   },
 };
 

@@ -1,7 +1,7 @@
 {
-  "name": "FlightsManager",
-  "short_name": "Flights",
-  "description": "AI-powered flight search and travel agent",
+  "name": "TripPilot",
+  "short_name": "TripPilot",
+  "description": "AI-powered flight and hotel search. Your AI travel agent.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
