@@ -325,7 +325,7 @@ export default function Home() {
                 TripPilot
               </h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Search real flights in plain English
+                Search flights, find hotels, plan trips
               </p>
 
               {/* Capability cards */}

@@ -44,7 +44,7 @@ export function InstallPrompt() {
         <span className="text-2xl">✈️</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-100">Add to home screen</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Quick access to flight search</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Your AI travel agent</p>
         </div>
         <button onClick={handleInstall} className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors shrink-0">
           Install
