@@ -11,7 +11,7 @@ export interface TravelProfile {
   notes?: string[];
 }
 
-export const PROFILE_STORAGE_KEY = "flightsmanager-profile";
+export const PROFILE_STORAGE_KEY = "trippilot-profile";
 
 export function loadProfile(): TravelProfile {
   if (typeof window === "undefined") return {};

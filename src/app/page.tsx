@@ -11,9 +11,9 @@ import { PriceAlerts } from "@/components/price-alerts";
 import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 
-const STORAGE_KEY = "flightsmanager-chat";
-const PROFILE_KEY = "flightsmanager-profile";
-const HISTORY_KEY = "flightsmanager-history";
+const STORAGE_KEY = "trippilot-chat";
+const PROFILE_KEY = "trippilot-profile";
+const HISTORY_KEY = "trippilot-history";
 
 interface ChatSession {
   id: string;
@@ -100,7 +100,7 @@ export default function Home() {
       setProfile(savedProfile);
       profileRef.current = savedProfile;
       // Restore dark mode
-      const savedDark = localStorage.getItem("flightsmanager-dark") === "true";
+      const savedDark = localStorage.getItem("trippilot-dark") === "true";
       setDark(savedDark);
       if (savedDark) document.documentElement.classList.add("dark");
     }
@@ -157,7 +157,7 @@ export default function Home() {
     setDark((prev) => {
       const next = !prev;
       document.documentElement.classList.toggle("dark", next);
-      localStorage.setItem("flightsmanager-dark", String(next));
+      localStorage.setItem("trippilot-dark", String(next));
       return next;
     });
   }, []);
@@ -236,7 +236,7 @@ export default function Home() {
           </button>
         </div>
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">FlightsManager</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">TripPilot</h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">AI travel agent</p>
         </div>
         <div className="flex justify-end items-center gap-1">
@@ -333,7 +333,7 @@ export default function Home() {
             <div className="flex flex-col items-center px-4 py-10 max-w-md mx-auto w-full">
               {/* App name + tagline */}
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-                FlightsManager
+                TripPilot
               </h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 Search real flights in plain English

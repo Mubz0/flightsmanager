@@ -47,7 +47,7 @@ export default function SharedPage() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
         <div className="w-20" />
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900">FlightsManager</h1>
+          <h1 className="text-xl font-bold text-gray-900">TripPilot</h1>
           <p className="text-xs text-gray-500">Shared itinerary</p>
         </div>
         <div className="w-20 flex justify-end">
