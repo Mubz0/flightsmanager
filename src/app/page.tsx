@@ -12,32 +12,21 @@ import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
 import { useAuth } from "@/contexts/auth-context";
 import { signOut } from "@/lib/auth";
+import {
+  fsLoadProfile, fsSaveProfile,
+  fsLoadSessions, fsLoadMessages,
+  fsSaveSession, fsDeleteSession,
+  fsSaveActiveChat, fsLoadActiveChat, fsClearActiveChat,
+  migrateFromLocalStorage,
+} from "@/lib/firestore";
 import { AuthScreen } from "@/components/auth-screen";
 import { SidePanel } from "@/components/side-panel";
-
-const STORAGE_KEY = "trippilot-chat";
-const PROFILE_KEY = "trippilot-profile";
-const HISTORY_KEY = "trippilot-history";
 
 interface ChatSession {
   id: string;
   title: string;
   timestamp: number;
   messages: UIMessage[];
-}
-
-function loadHistory(): ChatSession[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveHistory(history: ChatSession[]) {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 50)));
-  } catch { /* quota exceeded */ }
 }
 
 const EXAMPLE_PROMPTS = [
@@ -47,35 +36,8 @@ const EXAMPLE_PROMPTS = [
   "I have $800 and a week off — somewhere warm from JFK",
 ];
 
-function loadMessages(): UIMessage[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function saveMessages(messages: UIMessage[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  } catch { /* quota exceeded */ }
-}
-
-function loadProfile(): TravelProfile {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function saveProfile(profile: TravelProfile) {
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  } catch { /* quota exceeded */ }
-}
-
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<TravelProfile>({});
   const profileRef = useRef<TravelProfile>({});
   const [currency, setCurrency] = useState("USD");
@@ -87,35 +49,74 @@ export default function Home() {
   }), []);
   const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
     transport,
+    onFinish: () => {
+      if (user && messagesRef.current.length > 0) {
+        fsSaveActiveChat(user.uid, messagesRef.current).catch(console.error);
+      }
+    },
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
   const extractingRef = useRef(false);
+  const messagesRef = useRef<UIMessage[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Restore messages and profile from localStorage on mount
+  // Restore data from Firestore on mount (after auth loads)
   useEffect(() => {
-    if (!restoredRef.current) {
-      restoredRef.current = true;
-      const saved = loadMessages();
-      if (saved.length > 0) setMessages(saved);
-      const savedProfile = loadProfile();
-      setProfile(savedProfile);
-      profileRef.current = savedProfile;
-      // Restore dark mode
-      const savedDark = localStorage.getItem("trippilot-dark") === "true";
-      setDark(savedDark);
-      if (savedDark) document.documentElement.classList.add("dark");
-    }
-  }, [setMessages]);
+    if (!user || restoredRef.current) return;
+    restoredRef.current = true;
 
-  // Persist messages to localStorage when they change (skip while streaming)
+    // UI prefs from localStorage (never moved to Firestore)
+    const savedDark = localStorage.getItem("trippilot-dark") === "true";
+    setDark(savedDark);
+    if (savedDark) document.documentElement.classList.add("dark");
+
+    const savedCurrency = localStorage.getItem("trippilot-currency");
+    if (savedCurrency) { setCurrency(savedCurrency); currencyRef.current = savedCurrency; }
+
+    (async () => {
+      await migrateFromLocalStorage(user.uid);
+
+      const [fsProfile, activeMessages, sessions] = await Promise.all([
+        fsLoadProfile(user.uid),
+        fsLoadActiveChat(user.uid),
+        fsLoadSessions(user.uid),
+      ]);
+
+      setProfile(fsProfile);
+      profileRef.current = fsProfile;
+
+      if (activeMessages.length > 0) setMessages(activeMessages);
+
+      setHistory(sessions.map((s) => ({
+        id: s.id,
+        title: s.title,
+        timestamp: s.createdAt,
+        messages: [],
+      })));
+    })();
+  }, [user, setMessages]);
+
+  // Crash-recovery: flush active chat on page hide / tab close
   useEffect(() => {
-    if (!isLoading && messages.length > 0) {
-      saveMessages(messages);
-    }
-  }, [messages, isLoading]);
+    if (!user) return;
+    const flush = () => {
+      if (messagesRef.current.length > 0) {
+        fsSaveActiveChat(user.uid, messagesRef.current).catch(console.error);
+      }
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [user]);
 
   // Extract profile updates after each assistant response completes
   useEffect(() => {
@@ -138,7 +139,7 @@ export default function Home() {
                   if (Array.isArray(value) && (value as any[]).length === 0) continue;
                   (merged as any)[key] = value;
                 }
-                saveProfile(merged);
+                if (user) fsSaveProfile(user.uid, merged).catch(console.error);
                 profileRef.current = merged;
                 return merged;
               });
@@ -167,39 +168,37 @@ export default function Home() {
   }, []);
 
   const handleNewChat = useCallback(() => {
-    if (messages.length > 0) {
-      const firstUserMsg = messages.find((m) => m.role === "user");
+    const current = messagesRef.current;
+    if (current.length > 0 && user) {
+      const firstUserMsg = current.find((m) => m.role === "user");
       const title = firstUserMsg
         ? (firstUserMsg.parts?.find((p) => p.type === "text")?.text ?? "Chat").slice(0, 60)
         : "Chat";
-      const session: ChatSession = {
-        id: Date.now().toString(),
-        title,
-        timestamp: Date.now(),
-        messages,
-      };
-      const updated = [session, ...loadHistory()];
-      saveHistory(updated);
-      setHistory(updated);
+      const now = Date.now();
+      const sessionId = now.toString();
+      fsSaveSession(user.uid, { id: sessionId, title, createdAt: now, updatedAt: now }, current)
+        .catch(console.error);
+      fsClearActiveChat(user.uid).catch(console.error);
+      setHistory((prev) => [{ id: sessionId, title, timestamp: now, messages: [] }, ...prev]);
     }
     setMessages([]);
     clearError();
-    localStorage.removeItem(STORAGE_KEY);
-  }, [messages, setMessages, clearError]);
+  }, [setMessages, clearError, user]);
 
-  const handleLoadSession = useCallback((session: ChatSession) => {
-    setMessages(session.messages);
-    saveMessages(session.messages);
-    setShowHistory(false);
-  }, [setMessages]);
+  const handleLoadSession = useCallback(async (session: ChatSession) => {
+    if (!user) return;
+    const msgs = session.messages.length > 0
+      ? session.messages
+      : await fsLoadMessages(user.uid, session.id);
+    setMessages(msgs);
+    if (msgs.length > 0) fsSaveActiveChat(user.uid, msgs).catch(console.error);
+  }, [setMessages, user]);
 
   const handleDeleteSession = useCallback((id: string) => {
-    const updated = loadHistory().filter((s) => s.id !== id);
-    saveHistory(updated);
-    setHistory(updated);
-  }, []);
+    if (user) fsDeleteSession(user.uid, id).catch(console.error);
+    setHistory((prev) => prev.filter((s) => s.id !== id));
+  }, [user]);
 
-  const [showHistory, setShowHistory] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [history, setHistory] = useState<ChatSession[]>([]);
   const [historySearch, setHistorySearch] = useState("");
@@ -209,10 +208,6 @@ export default function Home() {
     const q = historySearch.toLowerCase();
     return history.filter((s) => s.title.toLowerCase().includes(q));
   }, [history, historySearch]);
-
-  useEffect(() => {
-    setHistory(loadHistory());
-  }, []);
 
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const handleShare = useCallback(() => {
@@ -230,8 +225,6 @@ export default function Home() {
   const hasProfile = Object.values(profile).some((v) =>
     Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined
   );
-
-  const { user, loading: authLoading } = useAuth();
 
   if (authLoading) {
     return (
@@ -255,7 +248,7 @@ export default function Home() {
         dark={dark}
         onToggleDark={toggleDark}
         currency={currency}
-        onChangeCurrency={(c) => { setCurrency(c); currencyRef.current = c; }}
+        onChangeCurrency={(c) => { setCurrency(c); currencyRef.current = c; localStorage.setItem("trippilot-currency", c); }}
         history={history}
         historySearch={historySearch}
         onHistorySearch={setHistorySearch}
