@@ -126,13 +126,11 @@ export async function fsSaveSession(
 ): Promise<void> {
   try {
     // Write session metadata
-    const metaBatch = writeBatch(db);
-    metaBatch.set(doc(db, "users", uid, "sessions", meta.id), {
+    await setDoc(doc(db, "users", uid, "sessions", meta.id), {
       title: meta.title,
       createdAt: meta.createdAt,
       updatedAt: meta.updatedAt,
     });
-    await metaBatch.commit();
 
     // Write messages in chunks of 490 (each gets its own fresh batch)
     const BATCH_LIMIT = 490;
@@ -160,10 +158,22 @@ export async function fsDeleteSession(uid: string, sessionId: string): Promise<v
     const msgsSnap = await getDocs(
       collection(db, "users", uid, "sessions", sessionId, "messages")
     );
-    const batch = writeBatch(db);
-    msgsSnap.docs.forEach((d) => batch.delete(d.ref));
-    batch.delete(doc(db, "users", uid, "sessions", sessionId));
-    await batch.commit();
+    const BATCH_LIMIT = 490;
+    const docs = msgsSnap.docs;
+    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+      const chunk = docs.slice(i, i + BATCH_LIMIT);
+      const delBatch = writeBatch(db);
+      chunk.forEach((d) => delBatch.delete(d.ref));
+      // Include session doc deletion in the last batch
+      if (i + BATCH_LIMIT >= docs.length) {
+        delBatch.delete(doc(db, "users", uid, "sessions", sessionId));
+      }
+      await delBatch.commit();
+    }
+    // If no messages, still delete the session doc
+    if (docs.length === 0) {
+      await deleteDoc(doc(db, "users", uid, "sessions", sessionId));
+    }
   } catch (e) {
     console.error("[TripPilot] fsDeleteSession", e);
   }
