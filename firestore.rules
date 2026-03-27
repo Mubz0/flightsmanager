@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/sessions/{sessionId}/messages/{messageId} {
+      allow create: if request.auth.uid == userId
+                    && request.resource.data.role in ['user', 'assistant', 'system', 'data']
+                    && request.resource.data.content.size() < 20000;
+      allow update: if request.auth.uid == userId
+                    && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if request.auth.uid == userId;
+    }
+  }
+}
