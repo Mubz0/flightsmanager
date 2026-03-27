@@ -38,6 +38,8 @@ const EXAMPLE_PROMPTS = [
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
   const [profile, setProfile] = useState<TravelProfile>({});
   const profileRef = useRef<TravelProfile>({});
   const [currency, setCurrency] = useState("USD");
@@ -50,8 +52,9 @@ export default function Home() {
   const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
     transport,
     onFinish: () => {
-      if (user && messagesRef.current.length > 0) {
-        fsSaveActiveChat(user.uid, messagesRef.current).catch(console.error);
+      const currentUser = userRef.current;
+      if (currentUser && messagesRef.current.length > 0) {
+        fsSaveActiveChat(currentUser.uid, messagesRef.current).catch(console.error);
       }
     },
   });
@@ -64,6 +67,11 @@ export default function Home() {
   }, [messages]);
 
   const isLoading = status === "submitted" || status === "streaming";
+
+  // Reset restore flag when user changes so new user gets fresh data
+  useEffect(() => {
+    restoredRef.current = false;
+  }, [user]);
 
   // Restore data from Firestore on mount (after auth loads)
   useEffect(() => {
@@ -149,7 +157,7 @@ export default function Home() {
           .finally(() => { extractingRef.current = false; });
       }
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, user]);
 
   // Auto-scroll to bottom on new messages/streaming
   useEffect(() => {
@@ -157,6 +165,12 @@ export default function Home() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  const handleChangeCurrency = useCallback((c: string) => {
+    setCurrency(c);
+    currencyRef.current = c;
+    localStorage.setItem("trippilot-currency", c);
+  }, []);
 
   const toggleDark = useCallback(() => {
     setDark((prev) => {
@@ -175,10 +189,11 @@ export default function Home() {
         ? (firstUserMsg.parts?.find((p) => p.type === "text")?.text ?? "Chat").slice(0, 60)
         : "Chat";
       const now = Date.now();
-      const sessionId = now.toString();
+      const sessionId = `${now}-${Math.random().toString(36).slice(2, 7)}`;
+      // Save session first, then clear active chat to avoid data loss on race
       fsSaveSession(user.uid, { id: sessionId, title, createdAt: now, updatedAt: now }, current)
+        .then(() => fsClearActiveChat(user.uid))
         .catch(console.error);
-      fsClearActiveChat(user.uid).catch(console.error);
       setHistory((prev) => [{ id: sessionId, title, timestamp: now, messages: [] }, ...prev]);
     }
     setMessages([]);
@@ -187,11 +202,17 @@ export default function Home() {
 
   const handleLoadSession = useCallback(async (session: ChatSession) => {
     if (!user) return;
+    // Save current active chat before switching sessions
+    const current = messagesRef.current;
+    if (current.length > 0) {
+      fsSaveActiveChat(user.uid, current).catch(console.error);
+    }
     const msgs = session.messages.length > 0
       ? session.messages
       : await fsLoadMessages(user.uid, session.id);
     setMessages(msgs);
     if (msgs.length > 0) fsSaveActiveChat(user.uid, msgs).catch(console.error);
+    setShowPanel(false);
   }, [setMessages, user]);
 
   const handleDeleteSession = useCallback((id: string) => {
@@ -248,7 +269,7 @@ export default function Home() {
         dark={dark}
         onToggleDark={toggleDark}
         currency={currency}
-        onChangeCurrency={(c) => { setCurrency(c); currencyRef.current = c; localStorage.setItem("trippilot-currency", c); }}
+        onChangeCurrency={handleChangeCurrency}
         history={history}
         historySearch={historySearch}
         onHistorySearch={setHistorySearch}
