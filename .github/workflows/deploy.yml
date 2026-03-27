@@ -27,12 +27,11 @@ jobs:
 
       - name: Package standalone build
         run: |
+          # Find the standalone server directory (may be nested under a project-name subdir)
+          STANDALONE=$(dirname $(find .next/standalone -name "server.js" ! -path "*/node_modules/*" | head -1))
+          echo "Standalone dir: $STANDALONE"
           mkdir -p deploy-out
-          cp .next/standalone/flightsmanager/server.js deploy-out/
-          cp .next/standalone/flightsmanager/package.json deploy-out/
-          cp -r .next/standalone/flightsmanager/node_modules deploy-out/node_modules
-          cp -r .next/standalone/flightsmanager/src deploy-out/src
-          cp -r .next/standalone/flightsmanager/.next deploy-out/.next
+          cp -r "$STANDALONE"/. deploy-out/
           cp -r .next/static deploy-out/.next/static
           cp -r public deploy-out/public
           cd deploy-out && zip -r ../deploy.zip . -x "*.git*"
