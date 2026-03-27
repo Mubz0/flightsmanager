@@ -10,6 +10,9 @@ import { InstallPrompt } from "@/components/install-prompt";
 import { PriceAlerts } from "@/components/price-alerts";
 import { compressToEncodedURIComponent } from "lz-string";
 import type { TravelProfile } from "@/lib/travel-profile";
+import { useAuth } from "@/contexts/auth-context";
+import { signOut } from "@/lib/auth";
+import { AuthScreen } from "@/components/auth-screen";
 
 const STORAGE_KEY = "trippilot-chat";
 const PROFILE_KEY = "trippilot-profile";
@@ -226,6 +229,20 @@ export default function Home() {
     Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined
   );
 
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-dvh bg-white dark:bg-gray-950">
+        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
   return (
     <main className="flex flex-col h-dvh relative">
       {/* Header */}
@@ -277,6 +294,23 @@ export default function Home() {
                 New
               </button>
             </>
+          )}
+          {user.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt={user.displayName ?? "User"}
+              className="w-7 h-7 rounded-full object-cover cursor-pointer"
+              onClick={signOut}
+              title="Sign out"
+            />
+          ) : (
+            <button
+              onClick={signOut}
+              className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              title="Sign out"
+            >
+              {user.displayName?.split(" ")[0] ?? user.email?.split("@")[0] ?? "Me"}
+            </button>
           )}
         </div>
       </div>
