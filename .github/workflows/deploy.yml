@@ -1,0 +1,52 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Package standalone build
+        run: |
+          mkdir -p deploy-out
+          cp .next/standalone/flightsmanager/server.js deploy-out/
+          cp .next/standalone/flightsmanager/package.json deploy-out/
+          cp -r .next/standalone/flightsmanager/node_modules deploy-out/node_modules
+          cp -r .next/standalone/flightsmanager/src deploy-out/src
+          cp -r .next/standalone/flightsmanager/.next deploy-out/.next
+          cp -r .next/static deploy-out/.next/static
+          cp -r public deploy-out/public
+          cd deploy-out && zip -r ../deploy.zip . -x "*.git*"
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        run: |
+          az webapp deploy \
+            --resource-group rg-flightsmanager \
+            --name app-flightsmanager \
+            --src-path deploy.zip \
+            --type zip \
+            --async false
