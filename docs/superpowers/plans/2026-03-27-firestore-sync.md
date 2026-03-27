@@ -4,7 +4,7 @@
 
 **Goal:** Sync chat history, travel profile, and active chat to Firestore so TripPilot data is available across all of a user's devices.
 
-**Architecture:** Firestore with native offline persistence (`persistentLocalCache()`) replaces manual localStorage management for all chat data. Messages are stored as a subcollection under each session doc. Active chat is held in React state during streaming and flushed to Firestore only on `onFinish`. localStorage is kept only for UI prefs (dark mode, currency).
+**Architecture:** Firestore with native offline persistence (`persistentLocalCache()`) replaces manual localStorage management for all chat data. Messages are stored as a subcollection under each session doc. Active chat is held in React state during streaming and flushed to Firestore only on `onFinish` (plus crash-recovery on `pagehide`). localStorage is kept only for UI prefs (dark mode, currency).
 
 **Tech Stack:** Next.js 16, Firebase 11 (Firestore modular v9+), TypeScript, React
 
@@ -31,25 +31,26 @@ In the Firestore console → Rules tab, replace the default rules with:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /users/{userId}/profile {
+    match /users/{userId}/profile/{doc} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     match /users/{userId}/sessions/{sessionId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.resource.data.role in ['user', 'assistant', 'system', 'data', 'tool']
+                      && request.resource.data.content.size() < 20000;
+        allow update: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
-    match /users/{userId}/sessions/{sessionId}/messages/{messageId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null
-                    && request.auth.uid == userId
-                    && request.resource.data.role in ['user', 'assistant', 'system', 'data', 'tool']
-                    && request.resource.data.content.size() < 20000;
-      allow update: if request.auth != null
-                    && request.auth.uid == userId
-                    && request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId}/activeChat/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
@@ -64,7 +65,12 @@ Click "Publish".
 **Files:**
 - Create: `src/lib/firestore.ts`
 
-This file initialises Firestore with offline persistence and exports typed helpers. It is the only file that imports from `firebase/firestore`.
+This file initialises Firestore with offline persistence and exports typed read/write helpers. It is the only file that imports from `firebase/firestore`.
+
+Key fixes from review:
+- Module-level singleton guard for `getDb()` with warning log on fallback
+- `fsSaveSession` uses `writeBatch` with deterministic message IDs (not sequential `addDoc`)
+- All Firestore writes are fire-and-forget (no `await` blocking the UI)
 
 - [ ] **Step 1: Create the file**
 
@@ -77,40 +83,41 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
   collection,
   getDocs,
-  addDoc,
-  deleteDoc,
   query,
   orderBy,
   limit,
   writeBatch,
-  serverTimestamp,
-  Timestamp,
+  type Firestore,
 } from "firebase/firestore";
-import { getApps } from "firebase/app";
 import { firebaseApp } from "./firebase";
 import type { TravelProfile } from "./travel-profile";
 import type { UIMessage } from "@ai-sdk/react";
 
-// ── Initialise with offline persistence ──────────────────────────────────────
+// ── Singleton init with offline persistence ───────────────────────────────────
 
-function getDb() {
-  // persistentLocalCache only works in browser; guard for SSR
+let _db: Firestore | null = null;
+
+function getDb(): Firestore {
+  if (_db) return _db;
   if (typeof window === "undefined") {
-    return getFirestore(firebaseApp);
+    _db = getFirestore(firebaseApp);
+    return _db;
   }
-  // initializeFirestore is idempotent if called multiple times it throws,
-  // so check if already initialised
   try {
-    return initializeFirestore(firebaseApp, {
+    _db = initializeFirestore(firebaseApp, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
       }),
     });
   } catch {
-    return getFirestore(firebaseApp);
+    // Already initialised (HMR) or persistence unavailable (Safari private mode)
+    console.warn("[TripPilot] Firestore offline persistence unavailable, falling back to memory cache");
+    _db = getFirestore(firebaseApp);
   }
+  return _db;
 }
 
 export const db = getDb();
@@ -124,7 +131,7 @@ export interface SessionMeta {
   updatedAt: number;
 }
 
-export interface StoredMessage {
+interface StoredMessage {
   id: string;
   role: string;
   content: string;
@@ -138,7 +145,7 @@ export async function fsLoadProfile(uid: string): Promise<TravelProfile> {
     const snap = await getDoc(doc(db, "users", uid, "profile", "data"));
     return snap.exists() ? (snap.data() as TravelProfile) : {};
   } catch (e) {
-    console.error("fsLoadProfile", e);
+    console.error("[TripPilot] fsLoadProfile", e);
     return {};
   }
 }
@@ -147,7 +154,7 @@ export async function fsSaveProfile(uid: string, profile: TravelProfile): Promis
   try {
     await setDoc(doc(db, "users", uid, "profile", "data"), profile, { merge: true });
   } catch (e) {
-    console.error("fsSaveProfile", e);
+    console.error("[TripPilot] fsSaveProfile", e);
   }
 }
 
@@ -163,7 +170,7 @@ export async function fsLoadSessions(uid: string): Promise<SessionMeta[]> {
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() } as SessionMeta));
   } catch (e) {
-    console.error("fsLoadSessions", e);
+    console.error("[TripPilot] fsLoadSessions", e);
     return [];
   }
 }
@@ -184,7 +191,7 @@ export async function fsLoadMessages(uid: string, sessionId: string): Promise<UI
       } as UIMessage;
     });
   } catch (e) {
-    console.error("fsLoadMessages", e);
+    console.error("[TripPilot] fsLoadMessages", e);
     return [];
   }
 }
@@ -197,37 +204,38 @@ export async function fsSaveSession(
   try {
     const batch = writeBatch(db);
 
-    // Session metadata doc
-    const sessionRef = doc(db, "users", uid, "sessions", meta.id);
-    batch.set(sessionRef, {
+    // Session metadata
+    batch.set(doc(db, "users", uid, "sessions", meta.id), {
       title: meta.title,
       createdAt: meta.createdAt,
       updatedAt: meta.updatedAt,
     });
 
-    await batch.commit();
-
-    // Write messages as individual docs in subcollection
-    const messagesRef = collection(db, "users", uid, "sessions", meta.id, "messages");
-    for (const msg of messages) {
+    // Messages — deterministic IDs (message.id) so writes are idempotent
+    const BATCH_LIMIT = 490; // Firestore batch cap is 500 ops; leave headroom
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
       const content =
         msg.parts?.find((p) => p.type === "text")?.text ??
         (typeof (msg as any).content === "string" ? (msg as any).content : "");
-      await addDoc(messagesRef, {
-        id: msg.id,
-        role: msg.role,
-        content,
-        createdAt: Date.now(),
-      } satisfies StoredMessage);
+      batch.set(
+        doc(db, "users", uid, "sessions", meta.id, "messages", msg.id),
+        { id: msg.id, role: msg.role, content, createdAt: meta.createdAt + i } satisfies StoredMessage
+      );
+      // Commit and start new batch every BATCH_LIMIT ops
+      if ((i + 1) % BATCH_LIMIT === 0) {
+        await batch.commit();
+      }
     }
+
+    await batch.commit();
   } catch (e) {
-    console.error("fsSaveSession", e);
+    console.error("[TripPilot] fsSaveSession", e);
   }
 }
 
 export async function fsDeleteSession(uid: string, sessionId: string): Promise<void> {
   try {
-    // Delete messages subcollection first
     const msgsSnap = await getDocs(
       collection(db, "users", uid, "sessions", sessionId, "messages")
     );
@@ -236,7 +244,7 @@ export async function fsDeleteSession(uid: string, sessionId: string): Promise<v
     batch.delete(doc(db, "users", uid, "sessions", sessionId));
     await batch.commit();
   } catch (e) {
-    console.error("fsDeleteSession", e);
+    console.error("[TripPilot] fsDeleteSession", e);
   }
 }
 
@@ -244,17 +252,17 @@ export async function fsDeleteSession(uid: string, sessionId: string): Promise<v
 
 export async function fsSaveActiveChat(uid: string, messages: UIMessage[]): Promise<void> {
   try {
-    const stored = messages.map((msg) => ({
+    const stored: StoredMessage[] = messages.map((msg, i) => ({
       id: msg.id,
       role: msg.role,
       content:
         msg.parts?.find((p) => p.type === "text")?.text ??
         (typeof (msg as any).content === "string" ? (msg as any).content : ""),
-      createdAt: Date.now(),
-    } satisfies StoredMessage));
+      createdAt: i,
+    }));
     await setDoc(doc(db, "users", uid, "activeChat", "current"), { messages: stored });
   } catch (e) {
-    console.error("fsSaveActiveChat", e);
+    console.error("[TripPilot] fsSaveActiveChat", e);
   }
 }
 
@@ -269,7 +277,7 @@ export async function fsLoadActiveChat(uid: string): Promise<UIMessage[]> {
       parts: [{ type: "text" as const, text: m.content }],
     } as UIMessage));
   } catch (e) {
-    console.error("fsLoadActiveChat", e);
+    console.error("[TripPilot] fsLoadActiveChat", e);
     return [];
   }
 }
@@ -278,7 +286,7 @@ export async function fsClearActiveChat(uid: string): Promise<void> {
   try {
     await deleteDoc(doc(db, "users", uid, "activeChat", "current"));
   } catch (e) {
-    console.error("fsClearActiveChat", e);
+    console.error("[TripPilot] fsClearActiveChat", e);
   }
 }
 
@@ -290,19 +298,20 @@ export async function fsClearActiveChat(uid: string): Promise<void> {
  */
 export async function migrateFromLocalStorage(uid: string): Promise<void> {
   try {
+    // Only migrate if no Firestore profile exists yet
     const fsProfile = await fsLoadProfile(uid);
-    const hasFirestoreData = Object.keys(fsProfile).length > 0;
-    if (hasFirestoreData) return; // Already migrated
+    if (Object.keys(fsProfile).length > 0) return;
 
-    // Migrate profile
+    // Check if there's anything to migrate
     const rawProfile = localStorage.getItem("trippilot-profile");
+    const rawHistory = localStorage.getItem("trippilot-history");
+    const rawChat = localStorage.getItem("trippilot-chat");
+    if (!rawProfile && !rawHistory && !rawChat) return;
+
     if (rawProfile) {
-      const profile: TravelProfile = JSON.parse(rawProfile);
-      await fsSaveProfile(uid, profile);
+      await fsSaveProfile(uid, JSON.parse(rawProfile));
     }
 
-    // Migrate history
-    const rawHistory = localStorage.getItem("trippilot-history");
     if (rawHistory) {
       const history: Array<{ id: string; title: string; timestamp: number; messages: UIMessage[] }> =
         JSON.parse(rawHistory);
@@ -315,8 +324,6 @@ export async function migrateFromLocalStorage(uid: string): Promise<void> {
       }
     }
 
-    // Migrate active chat
-    const rawChat = localStorage.getItem("trippilot-chat");
     if (rawChat) {
       const messages: UIMessage[] = JSON.parse(rawChat);
       if (messages.length > 0) await fsSaveActiveChat(uid, messages);
@@ -329,7 +336,8 @@ export async function migrateFromLocalStorage(uid: string): Promise<void> {
 
     console.log("[TripPilot] Migrated localStorage data to Firestore");
   } catch (e) {
-    console.error("migrateFromLocalStorage", e);
+    console.error("[TripPilot] migrateFromLocalStorage", e);
+    // Non-fatal — migration failure is logged and ignored
   }
 }
 ```
@@ -338,7 +346,7 @@ export async function migrateFromLocalStorage(uid: string): Promise<void> {
 
 ```bash
 git add src/lib/firestore.ts
-git commit -m "feat: add Firestore helpers with offline persistence"
+git commit -m "feat: add Firestore helpers with offline persistence and batch writes"
 ```
 
 ---
@@ -350,13 +358,16 @@ git commit -m "feat: add Firestore helpers with offline persistence"
 **Files:**
 - Modify: `src/app/page.tsx`
 
-This task replaces localStorage chat/profile reads/writes with Firestore calls and adds `onFinish` to the `useChat` hook for active chat sync.
+Read the entire file before editing.
 
-Read the file before editing. Changes are listed as find-and-replace operations.
+Key fixes from review:
+- `onFinish` uses a `messagesRef` (not the closure value) to avoid stale state bug
+- `pagehide` event listener flushes active chat for crash recovery
+- All history loading happens via Firestore on mount
 
 - [ ] **Step 1: Add Firestore imports**
 
-After the existing imports at the top of the file, add:
+After the existing imports, add:
 
 ```typescript
 import {
@@ -368,9 +379,9 @@ import {
 } from "@/lib/firestore";
 ```
 
-- [ ] **Step 2: Remove the old localStorage constant declarations**
+- [ ] **Step 2: Remove old localStorage constant declarations**
 
-Find and delete these three lines (they are no longer needed):
+Find and delete these three lines:
 
 ```typescript
 const STORAGE_KEY = "trippilot-chat";
@@ -380,9 +391,46 @@ const HISTORY_KEY = "trippilot-history";
 
 - [ ] **Step 3: Remove the four localStorage helper functions**
 
-Find and delete `loadHistory()`, `saveHistory()`, `loadMessages()`, `saveMessages()` — all four functions defined before the `Home` component. They are replaced by Firestore helpers.
+Find and delete the `loadHistory()`, `saveHistory()`, `loadMessages()`, and `saveMessages()` function definitions (all four are before the `Home` component). They are fully replaced by Firestore helpers.
 
-- [ ] **Step 4: Replace the restore-on-mount `useEffect`**
+- [ ] **Step 4: Add `messagesRef` to track latest messages (stale closure fix)**
+
+Inside the `Home` component, after the existing `const extractingRef = useRef(false);` line, add:
+
+```typescript
+  const messagesRef = useRef<typeof messages>([]);
+```
+
+Then add a `useEffect` to keep it current, right after that line:
+
+```typescript
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+```
+
+- [ ] **Step 5: Update `useChat` to use `messagesRef` in `onFinish`**
+
+Find:
+```typescript
+  const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
+    transport,
+  });
+```
+
+Replace with:
+```typescript
+  const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
+    transport,
+    onFinish: () => {
+      if (user && messagesRef.current.length > 0) {
+        fsSaveActiveChat(user.uid, messagesRef.current).catch(console.error);
+      }
+    },
+  });
+```
+
+- [ ] **Step 6: Replace the restore-on-mount `useEffect`**
 
 Find:
 ```typescript
@@ -410,43 +458,64 @@ Replace with:
     if (!user || restoredRef.current) return;
     restoredRef.current = true;
 
-    // Restore dark mode from localStorage (UI pref only)
+    // UI prefs from localStorage (never moved to Firestore)
     const savedDark = localStorage.getItem("trippilot-dark") === "true";
     setDark(savedDark);
     if (savedDark) document.documentElement.classList.add("dark");
 
-    // Restore currency from localStorage (UI pref only)
     const savedCurrency = localStorage.getItem("trippilot-currency");
     if (savedCurrency) { setCurrency(savedCurrency); currencyRef.current = savedCurrency; }
 
     (async () => {
-      // One-time migration from localStorage → Firestore
       await migrateFromLocalStorage(user.uid);
 
-      // Load profile
-      const fsProfile = await fsLoadProfile(user.uid);
+      const [fsProfile, activeMessages, sessions] = await Promise.all([
+        fsLoadProfile(user.uid),
+        fsLoadActiveChat(user.uid),
+        fsLoadSessions(user.uid),
+      ]);
+
       setProfile(fsProfile);
       profileRef.current = fsProfile;
 
-      // Load active chat
-      const activeMessages = await fsLoadActiveChat(user.uid);
       if (activeMessages.length > 0) setMessages(activeMessages);
 
-      // Load session history metadata
-      const sessions = await fsLoadSessions(user.uid);
       setHistory(sessions.map((s) => ({
         id: s.id,
         title: s.title,
         timestamp: s.createdAt,
-        messages: [], // loaded on demand
+        messages: [], // loaded on demand when session is opened
       })));
     })();
   }, [user, setMessages]);
 ```
 
-- [ ] **Step 5: Replace the persist-messages `useEffect`**
+- [ ] **Step 7: Add `pagehide` crash-recovery save**
 
-Find:
+After the restore `useEffect`, add a new `useEffect`:
+
+```typescript
+  // Crash-recovery: flush active chat on page hide / tab close
+  useEffect(() => {
+    if (!user) return;
+    const flush = () => {
+      if (messagesRef.current.length > 0) {
+        fsSaveActiveChat(user.uid, messagesRef.current).catch(console.error);
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flush();
+    });
+    return () => {
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [user]);
+```
+
+- [ ] **Step 8: Delete the persist-messages `useEffect`**
+
+Find and delete:
 ```typescript
   // Persist messages to localStorage when they change (skip while streaming)
   useEffect(() => {
@@ -456,9 +525,7 @@ Find:
   }, [messages, isLoading]);
 ```
 
-Delete this entire `useEffect` block — active chat is now flushed via `onFinish`.
-
-- [ ] **Step 6: Replace the profile save in the extraction `useEffect`**
+- [ ] **Step 9: Update profile save in the extraction `useEffect`**
 
 Inside the extraction `useEffect`, find:
 ```typescript
@@ -470,30 +537,11 @@ Replace with:
                 if (user) fsSaveProfile(user.uid, merged).catch(console.error);
 ```
 
-- [ ] **Step 7: Add `onFinish` to `useChat` for active chat sync**
+Also find `loadProfile()` if it appears anywhere in the extraction effect and remove it (it shouldn't — the profile is already in React state).
 
-Find the `useChat` call:
-```typescript
-  const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
-    transport,
-  });
-```
+- [ ] **Step 10: Replace `handleNewChat`**
 
-Replace with:
-```typescript
-  const { messages, sendMessage, status, setMessages, stop, error, clearError } = useChat({
-    transport,
-    onFinish: () => {
-      if (user && messages.length > 0) {
-        fsSaveActiveChat(user.uid, messages).catch(console.error);
-      }
-    },
-  });
-```
-
-- [ ] **Step 8: Replace `handleNewChat` to use Firestore**
-
-Find the `handleNewChat` function:
+Find:
 ```typescript
   const handleNewChat = useCallback(() => {
     if (messages.length > 0) {
@@ -520,31 +568,32 @@ Find the `handleNewChat` function:
 Replace with:
 ```typescript
   const handleNewChat = useCallback(() => {
-    if (messages.length > 0 && user) {
-      const firstUserMsg = messages.find((m) => m.role === "user");
+    const current = messagesRef.current;
+    if (current.length > 0 && user) {
+      const firstUserMsg = current.find((m) => m.role === "user");
       const title = firstUserMsg
         ? (firstUserMsg.parts?.find((p) => p.type === "text")?.text ?? "Chat").slice(0, 60)
         : "Chat";
       const now = Date.now();
       const sessionId = now.toString();
-      const meta = { id: sessionId, title, createdAt: now, updatedAt: now };
-      fsSaveSession(user.uid, meta, messages).catch(console.error);
+      fsSaveSession(user.uid, { id: sessionId, title, createdAt: now, updatedAt: now }, current)
+        .catch(console.error);
       fsClearActiveChat(user.uid).catch(console.error);
       setHistory((prev) => [{ id: sessionId, title, timestamp: now, messages: [] }, ...prev]);
     }
     setMessages([]);
     clearError();
-  }, [messages, setMessages, clearError, user]);
+  }, [setMessages, clearError, user]);
 ```
 
-- [ ] **Step 9: Replace `handleLoadSession` to load messages from Firestore on demand**
+- [ ] **Step 11: Replace `handleLoadSession`**
 
 Find:
 ```typescript
   const handleLoadSession = useCallback((session: ChatSession) => {
     setMessages(session.messages);
     saveMessages(session.messages);
-    setShowPanel(false);
+    setShowHistory(false);
   }, [setMessages]);
 ```
 
@@ -552,19 +601,15 @@ Replace with:
 ```typescript
   const handleLoadSession = useCallback(async (session: ChatSession) => {
     if (!user) return;
-    let msgs = session.messages;
-    if (msgs.length === 0) {
-      msgs = await fsLoadMessages(user.uid, session.id);
-    }
+    const msgs = session.messages.length > 0
+      ? session.messages
+      : await fsLoadMessages(user.uid, session.id);
     setMessages(msgs);
     if (msgs.length > 0) fsSaveActiveChat(user.uid, msgs).catch(console.error);
-    setShowPanel(false);
   }, [setMessages, user]);
 ```
 
-Note: `handleLoadSession` now returns a Promise, so the `onClick` in `side-panel.tsx` will need to handle that — it's already fire-and-forget via an async callback, so no change needed there.
-
-- [ ] **Step 10: Replace `handleDeleteSession` to delete from Firestore**
+- [ ] **Step 12: Replace `handleDeleteSession`**
 
 Find:
 ```typescript
@@ -583,7 +628,7 @@ Replace with:
   }, [user]);
 ```
 
-- [ ] **Step 11: Remove the history-load `useEffect`**
+- [ ] **Step 13: Remove the history-load `useEffect`**
 
 Find and delete:
 ```typescript
@@ -592,11 +637,11 @@ Find and delete:
   }, []);
 ```
 
-History is now loaded in the Firestore restore effect.
+History is now loaded inside the Firestore restore effect.
 
-- [ ] **Step 12: Update currency persistence to localStorage**
+- [ ] **Step 14: Persist currency to localStorage**
 
-In the `SidePanel` `onChangeCurrency` prop handler, currently:
+In the `SidePanel` `onChangeCurrency` prop, find:
 ```typescript
         onChangeCurrency={(c) => { setCurrency(c); currencyRef.current = c; }}
 ```
@@ -606,7 +651,7 @@ Replace with:
         onChangeCurrency={(c) => { setCurrency(c); currencyRef.current = c; localStorage.setItem("trippilot-currency", c); }}
 ```
 
-- [ ] **Step 13: Commit**
+- [ ] **Step 15: Commit**
 
 ```bash
 git add src/app/page.tsx
@@ -617,10 +662,7 @@ git commit -m "feat: replace localStorage with Firestore sync for chat and profi
 
 ## Chunk 3: Build + deploy
 
-### Task 4: Build check + enable Firestore on Azure + deploy
-
-**Files:**
-- No code changes
+### Task 4: Build check + deploy
 
 - [ ] **Step 1: TypeScript build check**
 
@@ -628,9 +670,10 @@ git commit -m "feat: replace localStorage with Firestore sync for chat and profi
 cd /Users/developer/flightsmanager && npm run build 2>&1 | tail -30
 ```
 
-Expected: clean build, no TypeScript errors.
-
-If there are errors about `loadProfile` / `saveProfile` still being imported from `@/lib/travel-profile` elsewhere, find those imports and remove them. The `travel-profile.ts` functions can remain in the file (they're harmless) but `page.tsx` should no longer call them.
+Expected: clean build, no TypeScript errors. Common errors to fix:
+- `loadProfile` / `saveProfile` / `loadHistory` / `saveHistory` no longer exist — remove any remaining calls
+- `STORAGE_KEY` / `PROFILE_KEY` / `HISTORY_KEY` no longer defined — remove any remaining references
+- `setShowHistory` is no longer used — remove it and its `useState`
 
 - [ ] **Step 2: Deploy**
 
@@ -644,4 +687,4 @@ Expected: GitHub Actions build + deploy succeeds.
 
 - [ ] **Step 3: Smoke test**
 
-Open `https://app-flightsmanager.azurewebsites.net/` in a browser, sign in, send a message, open a new browser profile, sign in with the same account, verify the chat history and profile appear.
+Open `https://app-flightsmanager.azurewebsites.net/` in a browser, sign in, send a message, sign in from a different browser — verify chat history and profile appear.
